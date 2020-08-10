@@ -1,0 +1,16 @@
+#!/bin/sh
+
+echo running rc.local
+/bin/rc.local
+
+echo
+echo "-----------------------------------"
+echo "| ichirou init system - boot done |"
+echo "|       starting ttys now!        |"
+echo "-----------------------------------"
+echo
+
+for i in {1..7}
+do
+   /bin/sh -c "/bin/respawn /bin/getty /dev/tty$i linux" &>/dev/null &
+done

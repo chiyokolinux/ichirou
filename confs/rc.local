@@ -1,0 +1,8 @@
+#!/bin/sh
+
+echo
+echo "----------------------------------"
+echo "| ichirou init system - rc.local |"
+echo "| place custom init scripts here |"
+echo "----------------------------------"
+echo
