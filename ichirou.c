@@ -9,8 +9,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define LEN(x)	(sizeof (x) / sizeof *(x))
-#define TIMEO	30
+#define LEN(x)  (sizeof (x) / sizeof *(x))
+#define TIMEO   30
 
 static void sigpoweroff(void);
 static void sigreap(void);
@@ -159,6 +159,7 @@ static void spawnwait(char *const argv[]) {
             _exit(1);
         case -1:
             perror("fork");
+            break;
         default:
             waitpid(chpid, NULL, WUNTRACED);
     }
