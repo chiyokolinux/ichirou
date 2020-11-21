@@ -24,12 +24,13 @@ confs:
 	cp -f $(CONFS) $(DESTDIR)$(PREFIX)/bin
 
 install: all
-	mkdir -p $(DESTDIR)$(PREFIX)/bin
-	cp -f $(INITBIN) $(DESTDIR)$(PREFIX)/bin
-	cp -f $(SERVBIN) $(DESTDIR)$(PREFIX)/bin
+	mkdir -p $(DESTDIR)$(PREFIX)/sbin
+	cp -f $(INITBIN) $(DESTDIR)$(PREFIX)/sbin
+	cp -f $(SERVBIN) $(DESTDIR)$(PREFIX)/sbin
+	ln -s $(DESTDIR)$(PREFIX)/sbin/$(INITBIN) $(DESTDIR)$(PREFIX)/sbin/init
 
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/$(INITBIN) $(DESTDIR)$(PREFIX)/bin/$(SERVBIN)
+	rm -f $(DESTDIR)$(PREFIX)/sbin/$(INITBIN) $(DESTDIR)$(PREFIX)/sbin/$(SERVBIN)
 
 dist: clean
 	mkdir -p ichirou-$(VERSION)
