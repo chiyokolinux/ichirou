@@ -52,7 +52,7 @@ struct servlist get_running_servs() {
     struct servlist servslist;
 
     struct dirent* dent;
-    DIR* srcdir = opendir("/bin/kanrisha.d/available/");
+    DIR* srcdir = opendir("/etc/kanrisha.d/available/");
     if(srcdir == NULL) {
         fprintf(stderr, "error: something went really wrong\n");
         exit(1);
@@ -70,7 +70,7 @@ struct servlist get_running_servs() {
         }
 
         if(S_ISDIR(st.st_mode)) {
-            char* dirname = strcat("/bin/kanrisha.d/available/", dent->d_name);
+            char* dirname = strcat("/etc/kanrisha.d/available/", dent->d_name);
             char* pidfname = strcat(dirname, "/pid");
             if(access(pidfname, F_OK) == -1) {
                 // servs[dir_count++] = dent->d_name;
@@ -86,7 +86,7 @@ struct servlist get_enabled_servs() {
     struct servlist servslist;
 
     struct dirent* dent;
-    DIR* srcdir = opendir("/bin/kanrisha.d/enabled/");
+    DIR* srcdir = opendir("/etc/kanrisha.d/enabled/");
     if(srcdir == NULL) {
         fprintf(stderr, "error: something went really wrong\n");
         exit(1);
@@ -125,7 +125,7 @@ int list(int only_enabled, int only_running) {
         }
     } else {
         struct dirent* dent;
-        DIR* srcdir = opendir("/bin/kanrisha.d/available/");
+        DIR* srcdir = opendir("/etc/kanrisha.d/available/");
         if(srcdir == NULL) {
             fprintf(stderr, "error: something went really wrong\n");
             return 1;
@@ -150,10 +150,10 @@ int list(int only_enabled, int only_running) {
 }
 
 int enable_serv(char servname[]) {
-    char* dirname = strcat("/bin/kanrisha.d/available/", servname);
+    char* dirname = strcat("/etc/kanrisha.d/available/", servname);
     char* dirname_fix = strcat(dirname, "/");
     if(access(dirname_fix, F_OK) != -1) {
-        char* targetdirname = strcat("/bin/kanrisha.d/enabled/", servname);
+        char* targetdirname = strcat("/etc/kanrisha.d/enabled/", servname);
         if(symlink(dirname_fix, targetdirname) != 0) {
             if (errno == EACCES) {
                 fprintf(stderr, "error: missing permissions\n");
@@ -172,7 +172,7 @@ int enable_serv(char servname[]) {
 }
 
 int disable_serv(char servname[]) {
-    char* dirname = strcat("/bin/kanrisha.d/enabled/", servname);
+    char* dirname = strcat("/etc/kanrisha.d/enabled/", servname);
     char* dirname_fix = strcat(dirname, "/");
     if(access(dirname_fix, F_OK) != -1) {
         if (unlink(dirname_fix) != 0) {
@@ -191,7 +191,7 @@ int disable_serv(char servname[]) {
 
 int start_serv(char servname[]) {
     printf("starting service %s...\n", servname);
-    char* dirname = strcat("/bin/kanrisha.d/available/", servname);
+    char* dirname = strcat("/etc/kanrisha.d/available/", servname);
     char* fname = strcat(dirname, "/run");
     char* pidfname = strcat(dirname, "/pid");
     if(access(fname, F_OK|X_OK) != -1) {
@@ -237,7 +237,7 @@ int start_all() {
 
 int stop_serv(char servname[]) {
     printf("stopping service %s...\n", servname);
-    char* dirname = strcat("/bin/kanrisha.d/available/", servname);
+    char* dirname = strcat("/etc/kanrisha.d/available/", servname);
     char* fname = strcat(dirname, "/pid");
     if(access(fname, F_OK|R_OK) != -1) {
         FILE *fp;
@@ -296,7 +296,7 @@ int stop_all() {
 }
 
 int restart_serv(char servname[]) {
-    char* dirname = strcat("/bin/kanrisha.d/available/", servname);
+    char* dirname = strcat("/etc/kanrisha.d/available/", servname);
     char* fname = strcat(dirname, "/pid");
     if(access(fname, F_OK|R_OK) != -1) {
         stop_serv(servname);
