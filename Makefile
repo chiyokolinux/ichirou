@@ -25,6 +25,7 @@ confs:
 
 install: all
 	mkdir -p $(DESTDIR)$(PREFIX)/sbin
+	mkdir -vp $(DESTDIR)$(PREFIX)/etc/kanrisha.d/{enabled,available}
 	cp -f $(INITBIN) $(DESTDIR)$(PREFIX)/sbin
 	cp -f $(SERVBIN) $(DESTDIR)$(PREFIX)/sbin
 	ln -s $(DESTDIR)$(PREFIX)/sbin/$(INITBIN) $(DESTDIR)$(PREFIX)/sbin/init
