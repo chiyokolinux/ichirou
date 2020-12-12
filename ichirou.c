@@ -90,23 +90,7 @@ static void sigpoweroff(void) {
 
     /* after SIGKILLTIMEOUT seconds, kill all processes */
     sleep(SIGKILLTIMEOUT);
-    kill(-1, SIGKILL);
-    sigreap();
-
-    /* sync filesystems */
-    sync();
-
-    /* run rc.shutdown */
-    spawnwait(rcshutdownfile);
-    sigreap();
-
-    /* power off system */
-    if (vfork() == 0) {
-        reboot(RB_POWER_OFF);
-        _exit(EXIT_SUCCESS);
-    }
-    while (1)
-        sleep(1);
+    sigfpoweroff();
 }
 
 /**
@@ -161,23 +145,7 @@ static void sigreboot(void) {
 
     /* after SIGKILLTIMEOUT seconds, kill all processes */
     sleep(SIGKILLTIMEOUT);
-    kill(-1, SIGKILL);
-    sigreap();
-
-    /* sync filesystems */
-    sync();
-
-    /* run rc.shutdown */
-    spawnwait(rcshutdownfile);
-    sigreap();
-
-    /* reboot system */
-    if (vfork() == 0) {
-        reboot(RB_AUTOBOOT);
-        _exit(EXIT_SUCCESS);
-    }
-    while (1)
-        sleep(1);
+    sigfreboot();
 }
 
 /**
