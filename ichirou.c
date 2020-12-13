@@ -14,9 +14,14 @@
 
 static void sigpoweroff(void);
 static void sigfpoweroff(void);
+static void sigffpoweroff(void);
 static void sigreap(void);
 static void sigreboot(void);
 static void sigfreboot(void);
+static void sigffreboot(void);
+static void sighalt(void);
+static void sigfhalt(void);
+static void sighibernate(void);
 static void spawn(char *const []);
 static void spawnwait(char *const argv[]);
 
@@ -24,12 +29,17 @@ static struct {
     int signal;
     void (*handler)(void);
 } signalmap[] = {
-    { SIGUSR1, sigpoweroff  },
-    { SIGUSR2, sigfpoweroff },
-    { SIGCHLD, sigreap      },
-    { SIGALRM, sigreap      },
-    { SIGINT,  sigreboot    },
-    { SIGTERM, sigfreboot   },
+    { SIGUSR1, sigpoweroff   },
+    { SIGUSR2, sigfpoweroff  },
+    { SIGTTIN, sigffpoweroff },
+    { SIGCHLD, sigreap       },
+    { SIGALRM, sigreap       },
+    { SIGINT,  sigreboot     },
+    { SIGTERM, sigfreboot    },
+    { SIGTTOU, sigffreboot   },
+    { SIGQUIT, sighalt       },
+    { SIGPWR,  sigfhalt      },
+    { SIGHUP,  sighibernate  },
 };
 
 #include "config.h"
@@ -111,6 +121,15 @@ static void sigfpoweroff(void) {
     sigreap();
 
     /* power off system */
+    sigffpoweroff();
+}
+
+/**
+ * this powers off the system with force level 2
+ * it directly powers off the system.
+**/
+static void sigffpoweroff(void) {
+    /* power off system */
     if (vfork() == 0) {
         reboot(RB_POWER_OFF);
         _exit(EXIT_SUCCESS);
@@ -165,6 +184,15 @@ static void sigfreboot(void) {
     spawnwait(rcshutdownfile);
     sigreap();
 
+    /* reboot system */
+    sigffreboot();
+}
+
+/**
+ * this reboots the system with force level 2
+ * it directly reboots the system.
+**/
+static void sigffreboot(void) {
     /* reboot system */
     if (vfork() == 0) {
         reboot(RB_AUTOBOOT);
