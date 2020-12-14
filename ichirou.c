@@ -202,6 +202,50 @@ static void sigffreboot(void) {
         sleep(1);
 }
 
+/**
+ * this halts the system.
+ * it performs the steps of a normal shutdown
+ * and then tells the kernel to halt.
+**/
+static void sighalt(void) {
+    /* stop services */
+    spawnwait(servstopcmd);
+    sigreap();
+
+    /* ask processes to terminate */
+    kill(-1, SIGTERM);
+    sigreap();
+
+    /* after SIGKILLTIMEOUT seconds, kill all processes */
+    sleep(SIGKILLTIMEOUT);
+    kill(-1, SIGKILL);
+    sigreap();
+
+    /* sync filesystems */
+    sync();
+
+    /* run rc.shutdown */
+    spawnwait(rcshutdownfile);
+    sigreap();
+
+    /* halt system */
+    sigfhalt();
+}
+
+/**
+ * this halts the system with force level 2
+ * it directly tells the kernel to halt the system.
+**/
+static void sigfhalt(void) {
+    /* halt system */
+    if (vfork() == 0) {
+        reboot(RB_HALT_SYSTEM);
+        _exit(EXIT_SUCCESS);
+    }
+    while (1)
+        sleep(1);
+}
+
 static void spawn(char *const argv[]) {
     switch (fork()) {
         case 0:
