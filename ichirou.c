@@ -246,6 +246,22 @@ static void sigfhalt(void) {
         sleep(1);
 }
 
+/**
+ * this hibernates the system
+ * it tells the kernel to hibernate the system.
+ * yet untested, probably not ready
+ * for use in production (yet).
+**/
+static void sighibernate(void) {
+    /* hibernate system */
+    if (vfork() == 0) {
+        reboot(RB_SW_SUSPEND);
+        _exit(EXIT_SUCCESS);
+    }
+    while (1)
+        sleep(1);
+}
+
 static void spawn(char *const argv[]) {
     switch (fork()) {
         case 0:
