@@ -45,7 +45,17 @@ struct servlist {
 };
 
 void help() {
-    printf("           kanrisha - a simple service manager\n           created for the ichirou init system\n\nkanrisha list - list all available services\nkanrisha list enabled - list enabled services\nkanrisha list running - list running services\nkanrisha enable service - enable service\nkanrisha disable service - disable service\nkanrisha start - start all enabled services\nkanrisha start service - start service\nkanrisha stop - stop all running services\nkanrisha restart service - restart service\n");
+    printf("           kanrisha - a simple service manager\n"
+           "           created for the ichirou init system\n\n"
+           "kanrisha list - list all available services\n"
+           "kanrisha list enabled - list enabled services\n"
+           "kanrisha list running - list running services\n"
+           "kanrisha enable service - enable service\n"
+           "kanrisha disable service - disable service\n"
+           "kanrisha start - start all enabled services\n"
+           "kanrisha start service - start service\n"
+           "kanrisha stop - stop all running services\n"
+           "kanrisha restart service - restart service\n");
 }
 
 struct servlist get_running_servs() {
