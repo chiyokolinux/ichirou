@@ -1,2 +1,61 @@
 #!/bin/sh
 
+ACTION="USR1"
+FORCE="no"
+
+parse_and_wait_time() {
+    [ -z ${WAITDONE} ]
+    [ $? -ne 0 ] && return
+    if [ -z "$1" ]; then
+        sleep 1s
+    else
+        # try to sleep $1 time
+        sleep $1 2> /dev/null
+        # if time format is invalid, parse date
+        if [ $? -ne 0 ]; then
+            TIMENOW=$(date +%s)
+            TIMETARGET=$(date -d "tomorrow $1" +%s)
+            sleep $(( ( $TIMETARGET - $TIMENOW ) %86400))
+        fi
+    fi
+    WAITDONE="yes"
+}
+
+force_level() {
+    if [ ${FORCE} = "yes" ]; then
+        [ ${ACTION} = "INT" ] && ACTION="TERM"
+        [ ${ACTION} = "USR1" ] && ACTION="USR2"
+    fi
+    if [ ${FORCE} = "fforce" ]; then
+        [ ${ACTION} = "INT" ] && ACTION="TTOU"
+        [ ${ACTION} = "USR1" ] && ACTION="TTIN"
+    fi
+}
+
+help() {
+    echo "$0 - reboot or poweroff system"
+    echo "usage:"
+    echo "  -h  --help     Print help"
+    echo "  -f  --force    Force action (level 1)"
+    echo "  -ff --fforce   Force action (level 2)"
+    echo "  -p  --poweroff Power off system (shutdown) (default)"
+    echo "  -r  --reboot   Reboot system"
+}
+
+while [ "$1" ]; do
+    case "$1" in
+        --help | -h) help && exit ;;
+        --force | -f) FORCE="yes" ;;
+        --fforce | -ff) FORCE="fforce" ;;
+        --reboot | -r) ACTION="INT" ;;
+        --poweroff | -p) ACTION="USR1" ;;
+        -*) echo "invalid option: $1" >&2 && exit ;;
+        *) parse_and_wait_time $1;;
+    esac
+    shift
+done
+
+parse_and_wait_time
+force_level
+
+/bin/kill -s ${ACTION} 1
