@@ -7,8 +7,9 @@ SERVOBJ = kanrisha.o
 SERVBIN = kanrisha
 
 CONFS = confs/rc.conf confs/rc.init confs/rc.local confs/rc.postinit confs/rc.shutdown
+SCRIPTS = scripts/halt scripts/hibernate scripts/reboot scripts/shutdown
 
-all: $(INITBIN) $(SERVBIN) confs
+all: $(INITBIN) $(SERVBIN)
 
 $(INITBIN): $(INITOBJ)
 	$(CC) $(LDFLAGS) -o $@ $(INITOBJ) $(LDLIBS)
@@ -23,7 +24,11 @@ confs:
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
 	cp -f $(CONFS) $(DESTDIR)$(PREFIX)/bin
 
-install: all
+scripts:
+	mkdir -p $(DESTDIR)$(PREFIX)/sbin
+	cp -f $(SCRIPTS) $(DESTDIR)$(PREFIX)/sbin
+
+install: all confs scripts
 	mkdir -p $(DESTDIR)$(PREFIX)/sbin
 	mkdir -vp $(DESTDIR)$(PREFIX)/etc/kanrisha.d/{enabled,available}
 	cp -f $(INITBIN) $(DESTDIR)$(PREFIX)/sbin
@@ -36,9 +41,11 @@ uninstall:
 dist: clean
 	mkdir -p ichirou-$(VERSION)
 	mkdir -p ichirou-$(VERSION)/confs
+	mkdir -p ichirou-$(VERSION)/scripts
 	cp LICENSE Makefile README config.def.h config.mk ichirou.c kanrisha.c ichirou-$(VERSION)
 	cp confs/rc.conf confs/rc.init confs/rc.local confs/rc.postinit \
 	   confs/rc.shutdown ichirou-$(VERSION)/confs
+	cp scripts/halt scripts/hibernate scripts/reboot scripts/shutdown ichirou-$(VERSION)/scripts
 	tar -cf ichirou-$(VERSION).tar ichirou-$(VERSION)
 	gzip ichirou-$(VERSION).tar
 	rm -rf ichirou-$(VERSION)
