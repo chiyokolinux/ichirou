@@ -94,9 +94,11 @@ struct servlist get_running_servs() {
 
         if(S_ISDIR(st.st_mode)) {
             char* pidfname = malloc(sizeof(char) * (32 + strlen(dent->d_name)));
+
             strcpy(pidfname, "/etc/kanrisha.d/available/");
             strcat(pidfname, dent->d_name);
             strcat(pidfname, "/pid");
+
             if(access(pidfname, F_OK) == -1) {
                 // servs[dir_count++] = dent->d_name;
                 strcpy(servslist.services[servslist.servc++], dent->d_name);
@@ -177,9 +179,11 @@ int list(int only_enabled, int only_running) {
 
 int showlog(char servname[]) {
     char* logfname = malloc(sizeof(char) * (32 + strlen(servname)));
+
     strcpy(logfname, "/etc/kanrisha.d/available/");
     strcat(logfname, servname);
     strcat(logfname, "/log");
+
     char* fullcmd[] = { "less", logfname, NULL };
 
     execvp(fullcmd[0], fullcmd);
@@ -207,6 +211,7 @@ int status(char servname[]) {
 
     char* pidfname = malloc(sizeof(char) * (32 + strlen(servname)));
     char* logfname = malloc(sizeof(char) * (32 + strlen(servname)));
+
     strcpy(pidfname, "/etc/kanrisha.d/available/");
     strcat(pidfname, servname);
     strcpy(logfname, pidfname);
@@ -255,9 +260,11 @@ int status(char servname[]) {
 
 int enable_serv(char servname[]) {
     char* dirname = malloc(sizeof(char) * (32 + strlen(servname)));
+
     strcpy(dirname, "/etc/kanrisha.d/available/");
     strcat(dirname, servname);
     strcat(dirname, "/");
+
     if(access(dirname, F_OK) != -1) {
         char* targetdirname = malloc(sizeof(char) * (28 + strlen(servname)));
         strcpy(targetdirname, "/etc/kanrisha.d/enabled/");
@@ -277,15 +284,19 @@ int enable_serv(char servname[]) {
         return 1;
     }
     printf("service %s has been enabled\n", servname);
+
     free(dirname);
+
     return 0;
 }
 
 int disable_serv(char servname[]) {
     char* dirname = malloc(sizeof(char) * (28 + strlen(servname)));
+
     strcpy(dirname, "/etc/kanrisha.d/enabled/");
     strcat(dirname, servname);
     strcat(dirname, "/");
+
     if(access(dirname, F_OK) != -1) {
         if (unlink(dirname) != 0) {
             if (errno == EACCES || errno == EPERM) {
@@ -298,16 +309,27 @@ int disable_serv(char servname[]) {
         return 1;
     }
     printf("service %s has been disabled\n", servname);
+
     free(dirname);
+
     return 0;
 }
 
 int start_serv(char servname[]) {
     printf("starting service %s...\n", servname);
-    char* dirname = strcat("/etc/kanrisha.d/available/", servname);
-    char* fname = strcat(dirname, "/run");
-    char* pidfname = strcat(dirname, "/pid");
-    char* logfname = strcat(dirname, "/log");
+
+    char* fname = malloc(sizeof(char) * (32 + strlen(servname)));
+    char* pidfname = malloc(sizeof(char) * (32 + strlen(servname)));
+    char* logfname = malloc(sizeof(char) * (32 + strlen(servname)));
+
+    strcpy(fname, "/etc/kanrisha.d/available/");
+    strcat(fname, servname);
+    strcpy(pidfname, fname);
+    strcpy(logfname, fname);
+    strcat(fname, "/run");
+    strcat(pidfname, "/pid");
+    strcat(logfname, "/log");
+
     if(access(fname, F_OK|X_OK) != -1) {
         if(access(pidfname, F_OK) == -1) {
             if(access(fname, F_OK|W_OK) != -1) {
@@ -347,6 +369,11 @@ int start_serv(char servname[]) {
         return 1;
     }
     printf("service %s has been started\n", servname);
+
+    free(fname);
+    free(pidfname);
+    free(logfname);
+
     return 0;
 }
 
