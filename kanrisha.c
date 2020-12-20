@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 
+void malloc_fail();
 void help();
 struct servlist get_running_servs();
 struct servlist get_enabled_servs();
@@ -48,6 +49,11 @@ struct servlist {
     char services[MAXSERVICES][256];
     int servc;
 };
+
+void malloc_fail() {
+    perror("malloc");
+    exit(-1);
+}
 
 void help() {
     printf("           kanrisha - a simple service manager\n"
@@ -87,12 +93,15 @@ struct servlist get_running_servs() {
         }
 
         if(S_ISDIR(st.st_mode)) {
-            char* dirname = strcat("/etc/kanrisha.d/available/", dent->d_name);
-            char* pidfname = strcat(dirname, "/pid");
+            char* pidfname = malloc(sizeof(char) * (32 + strlen(dent->d_name)));
+            strcpy(pidfname, "/etc/kanrisha.d/available/");
+            strcat(pidfname, dent->d_name);
+            strcat(pidfname, "/pid");
             if(access(pidfname, F_OK) == -1) {
                 // servs[dir_count++] = dent->d_name;
                 strcpy(servslist.services[servslist.servc++], dent->d_name);
             }
+            free(pidfname);
         }
     }
     closedir(srcdir);
@@ -167,8 +176,10 @@ int list(int only_enabled, int only_running) {
 }
 
 int showlog(char servname[]) {
-    char* dirname = strcat("/etc/kanrisha.d/available/", servname);
-    char* logfname = strcat(dirname, "/log");
+    char* logfname = malloc(sizeof(char) * (32 + strlen(servname)));
+    strcpy(logfname, "/etc/kanrisha.d/available/");
+    strcat(logfname, servname);
+    strcat(logfname, "/log");
     char* fullcmd[] = { "less", logfname, NULL };
 
     execvp(fullcmd[0], fullcmd);
@@ -194,9 +205,13 @@ int status(char servname[]) {
      * the bases of chiyoko before dealing with these minor details.
     **/
 
-    char* dirname = strcat("/etc/kanrisha.d/available/", servname);
-    char* pidfname = strcat(dirname, "/pid");
-    char* logfname = strcat(dirname, "/log");
+    char* pidfname = malloc(sizeof(char) * (32 + strlen(servname)));
+    char* logfname = malloc(sizeof(char) * (32 + strlen(servname)));
+    strcpy(pidfname, "/etc/kanrisha.d/available/");
+    strcat(pidfname, servname);
+    strcpy(logfname, pidfname);
+    strcat(pidfname, "/pid");
+    strcat(logfname, "/log");
 
     char status[12] = "not running";
     pid_t pid = -1;
@@ -223,6 +238,9 @@ int status(char servname[]) {
            "main pid: %d\n\n",
            servname, status, pid);
 
+    free(pidfname);
+    free(logfname);
+
     // printing the last lines of a file in C is a fucking nightmare when 
     // you care about compact, fast and beautiful code. we'll just execvp 
     // tail to deal with this absolutely hellish fuckery
@@ -236,11 +254,15 @@ int status(char servname[]) {
 }
 
 int enable_serv(char servname[]) {
-    char* dirname = strcat("/etc/kanrisha.d/available/", servname);
-    char* dirname_fix = strcat(dirname, "/");
-    if(access(dirname_fix, F_OK) != -1) {
-        char* targetdirname = strcat("/etc/kanrisha.d/enabled/", servname);
-        if(symlink(dirname_fix, targetdirname) != 0) {
+    char* dirname = malloc(sizeof(char) * (32 + strlen(servname)));
+    strcpy(dirname, "/etc/kanrisha.d/available/");
+    strcat(dirname, servname);
+    strcat(dirname, "/");
+    if(access(dirname, F_OK) != -1) {
+        char* targetdirname = malloc(sizeof(char) * (28 + strlen(servname)));
+        strcpy(targetdirname, "/etc/kanrisha.d/enabled/");
+        strcat(targetdirname, servname);
+        if(symlink(dirname, targetdirname) != 0) {
             if (errno == EACCES) {
                 fprintf(stderr, "error: missing permissions\n");
                 return 1;
@@ -249,29 +271,34 @@ int enable_serv(char servname[]) {
                 return 1;
             }
         }
+        free(targetdirname);
     } else {
         fprintf(stderr, "error: %s doesn't exist\n", servname);
         return 1;
     }
     printf("service %s has been enabled\n", servname);
+    free(dirname);
     return 0;
 }
 
 int disable_serv(char servname[]) {
-    char* dirname = strcat("/etc/kanrisha.d/enabled/", servname);
-    char* dirname_fix = strcat(dirname, "/");
-    if(access(dirname_fix, F_OK) != -1) {
-        if (unlink(dirname_fix) != 0) {
+    char* dirname = malloc(sizeof(char) * (28 + strlen(servname)));
+    strcpy(dirname, "/etc/kanrisha.d/enabled/");
+    strcat(dirname, servname);
+    strcat(dirname, "/");
+    if(access(dirname, F_OK) != -1) {
+        if (unlink(dirname) != 0) {
             if (errno == EACCES || errno == EPERM) {
                 fprintf(stderr, "error: missing permissions\n");
                 return 1;
             }
         }
     } else {
-        fprintf(stderr, "error: %s doesn't exist\n", servname);
+        fprintf(stderr, "error: %s is already disabled\n", servname);
         return 1;
     }
     printf("service %s has been disabled\n", servname);
+    free(dirname);
     return 0;
 }
 
