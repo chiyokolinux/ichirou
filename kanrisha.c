@@ -7,6 +7,7 @@
  * kanrisha list enabled - list enabled services
  * kanrisha list running - list running services
  * kanrisha log service - show latest log of service
+ * kanrisha status service - show status of service
  * kanrisha enable service - enable service
  * kanrisha disable service - disable service
  * kanrisha start - start all enabled services
@@ -25,12 +26,14 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <stdlib.h>
+#include <fcntl.h>
 
 void help();
 struct servlist get_running_servs();
 struct servlist get_enabled_servs();
 int list(int only_enabled, int only_running);
-int log(char servname[]);
+int showlog(char servname[]);
+int status(char servname[]);
 int enable_serv(char servname[]);
 int disable_serv(char servname[]);
 int start_serv(char servname[]);
@@ -53,6 +56,7 @@ void help() {
            "kanrisha list enabled - list enabled services\n"
            "kanrisha list running - list running services\n"
            "kanrisha log service - show latest log of service\n"
+           "kanrisha status service - show status of service\n"
            "kanrisha enable service - enable service\n"
            "kanrisha disable service - disable service\n"
            "kanrisha start - start all enabled services\n"
@@ -162,7 +166,7 @@ int list(int only_enabled, int only_running) {
     return 0;
 }
 
-int log(char servname[]) {
+int showlog(char servname[]) {
     char* dirname = strcat("/etc/kanrisha.d/available/", servname);
     char* logfname = strcat(dirname, "/log");
     char* fullcmd[] = { "less", logfname, NULL };
@@ -171,6 +175,64 @@ int log(char servname[]) {
 
     perror("execvp");
     return 1;
+}
+
+int status(char servname[]) {
+    /**
+     * destlink - running
+     * main pid: 1337, uptime: 4h 32m 12s
+     * cpu: 0.01%, mem: 12M
+     * 
+     * Linked target HOME (user/home) to /home/emily
+     * Linked target ROOTHOME (system/roothome) to /root
+     * Linked target MUSIC (user/music) to /run/media/emily/MusicHDD
+     * Linked target VIDEOS (user/music) to /run/media/emily/MediaHDD/vids
+     * Linked target PICTURES (user/music) to /run/media/emily/MediaHDD/pics
+     * Moving queue
+     * 
+     * uptime, cpu and mem are difficult to calculate in C and I want to finish
+     * the bases of chiyoko before dealing with these minor details.
+    **/
+
+    char* dirname = strcat("/etc/kanrisha.d/available/", servname);
+    char* pidfname = strcat(dirname, "/pid");
+    char* logfname = strcat(dirname, "/log");
+
+    char status[12] = "not running";
+    pid_t pid = -1;
+    if(access(pidfname, F_OK) != -1) {
+        FILE *pidf;
+        pidf = fopen(pidfname, "r");
+        if (pidf == NULL) {
+            fprintf(stderr, "error: %s", strerror(errno));
+            return -1;
+        }
+
+        fscanf(pidf, "%d", &pid);
+        fclose(pidf);
+
+        kill(pid, 0);
+        if (errno == ESRCH) {
+            strcpy(status, "dead");
+        } else {
+            strcpy(status, "running");
+        }
+    }
+
+    printf("%s - %s\n"
+           "main pid: %d\n\n",
+           servname, status, pid);
+
+    // printing the last lines of a file in C is a fucking nightmare when 
+    // you care about compact, fast and beautiful code. we'll just execvp 
+    // tail to deal with this absolutely hellish fuckery
+
+    char* fullcmd[] = { "tail", "-n", STATUSLOGLEN, logfname, NULL };
+    execvp(fullcmd[0], fullcmd);
+
+    perror("execvp");
+
+    return 126;
 }
 
 int enable_serv(char servname[]) {
@@ -362,8 +424,10 @@ int main(int argc, char *argv[]) {
         return stop_all();
     } else if (!strcmp(argv[1], "restart") && argc == 3) {
         return restart_serv(argv[2]);
+    } else if (!strcmp(argv[1], "status") && argc == 3) {
+        return status(argv[2]);
     } else if (!strcmp(argv[1], "log") && argc == 3) {
-        return log(argv[2]);
+        return showlog(argv[2]);
     } else if (!strcmp(argv[1], "list") && argc == 2) {
         return list(0, 0);
     } else if (!strcmp(argv[1], "list") && !strcmp(argv[2], "enabled")) {

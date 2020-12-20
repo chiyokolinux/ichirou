@@ -8,3 +8,4 @@ static char *const servstopcmd[]    = { "/bin/kanrisha", "stop",   NULL };
 #define MAXSERVICES     512
 
 #define LOGFILEPERMS    0600
+#define STATUSLOGLEN    "8"
