@@ -388,8 +388,13 @@ int start_all() {
 
 int stop_serv(char servname[]) {
     printf("stopping service %s...\n", servname);
-    char* dirname = strcat("/etc/kanrisha.d/available/", servname);
-    char* fname = strcat(dirname, "/pid");
+
+    char* fname = malloc(sizeof(char) * (32 + strlen(servname)));
+
+    strcpy(fname, "/etc/kanrisha.d/available/");
+    strcat(fname, servname);
+    strcat(fname, "/pid");
+
     if(access(fname, F_OK|R_OK) != -1) {
         FILE *fp;
         fp = fopen(fname, "r");
@@ -436,6 +441,9 @@ int stop_serv(char servname[]) {
         return 1;
     }
     printf("service %s has been stopped\n", servname);
+
+    free(fname);
+
     return 0;
 }
 
@@ -449,8 +457,12 @@ int stop_all() {
 }
 
 int restart_serv(char servname[]) {
-    char* dirname = strcat("/etc/kanrisha.d/available/", servname);
-    char* fname = strcat(dirname, "/pid");
+    char* fname = malloc(sizeof(char) * (32 + strlen(servname)));
+
+    strcpy(fname, "/etc/kanrisha.d/available/");
+    strcat(fname, servname);
+    strcat(fname, "/pid");
+
     if(access(fname, F_OK|R_OK) != -1) {
         stop_serv(servname);
         start_serv(servname);
@@ -459,6 +471,9 @@ int restart_serv(char servname[]) {
         return 1;
     }
     printf("service %s has been restarted\n", servname);
+
+    free(fname);
+
     return 0;
 }
 
