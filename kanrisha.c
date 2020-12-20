@@ -93,7 +93,8 @@ struct servlist get_running_servs() {
         }
 
         if(S_ISDIR(st.st_mode)) {
-            char* pidfname = malloc(sizeof(char) * (32 + strlen(dent->d_name)));
+            char* pidfname;
+            if (!(pidfname = malloc(sizeof(char) * (32 + strlen(dent->d_name))))) malloc_fail();
 
             strcpy(pidfname, "/etc/kanrisha.d/available/");
             strcat(pidfname, dent->d_name);
@@ -178,7 +179,8 @@ int list(int only_enabled, int only_running) {
 }
 
 int showlog(char servname[]) {
-    char* logfname = malloc(sizeof(char) * (32 + strlen(servname)));
+    char* logfname;
+    if (!(logfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
 
     strcpy(logfname, "/etc/kanrisha.d/available/");
     strcat(logfname, servname);
@@ -209,8 +211,10 @@ int status(char servname[]) {
      * the bases of chiyoko before dealing with these minor details.
     **/
 
-    char* pidfname = malloc(sizeof(char) * (32 + strlen(servname)));
-    char* logfname = malloc(sizeof(char) * (32 + strlen(servname)));
+    char* pidfname;
+    char* logfname;
+    if (!(pidfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
+    if (!(logfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
 
     strcpy(pidfname, "/etc/kanrisha.d/available/");
     strcat(pidfname, servname);
@@ -259,16 +263,20 @@ int status(char servname[]) {
 }
 
 int enable_serv(char servname[]) {
-    char* dirname = malloc(sizeof(char) * (32 + strlen(servname)));
+    char* dirname;
+    if (!(dirname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
 
     strcpy(dirname, "/etc/kanrisha.d/available/");
     strcat(dirname, servname);
     strcat(dirname, "/");
 
     if(access(dirname, F_OK) != -1) {
-        char* targetdirname = malloc(sizeof(char) * (28 + strlen(servname)));
+        char* targetdirname
+        if (!(targetdirname = malloc(sizeof(char) * (28 + strlen(servname))))) malloc_fail();
+
         strcpy(targetdirname, "/etc/kanrisha.d/enabled/");
         strcat(targetdirname, servname);
+
         if(symlink(dirname, targetdirname) != 0) {
             if (errno == EACCES) {
                 fprintf(stderr, "error: missing permissions\n");
@@ -291,7 +299,8 @@ int enable_serv(char servname[]) {
 }
 
 int disable_serv(char servname[]) {
-    char* dirname = malloc(sizeof(char) * (28 + strlen(servname)));
+    char* dirname;
+    if (!(dirname = malloc(sizeof(char) * (28 + strlen(servname))))) malloc_fail();
 
     strcpy(dirname, "/etc/kanrisha.d/enabled/");
     strcat(dirname, servname);
@@ -318,9 +327,12 @@ int disable_serv(char servname[]) {
 int start_serv(char servname[]) {
     printf("starting service %s...\n", servname);
 
-    char* fname = malloc(sizeof(char) * (32 + strlen(servname)));
-    char* pidfname = malloc(sizeof(char) * (32 + strlen(servname)));
-    char* logfname = malloc(sizeof(char) * (32 + strlen(servname)));
+    char* fname;
+    char* pidfname;
+    char* logfname;
+    if (!(fname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
+    if (!(pidfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
+    if (!(pidfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
 
     strcpy(fname, "/etc/kanrisha.d/available/");
     strcat(fname, servname);
@@ -389,7 +401,8 @@ int start_all() {
 int stop_serv(char servname[]) {
     printf("stopping service %s...\n", servname);
 
-    char* fname = malloc(sizeof(char) * (32 + strlen(servname)));
+    char* fname;
+    if (!(fname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
 
     strcpy(fname, "/etc/kanrisha.d/available/");
     strcat(fname, servname);
@@ -457,7 +470,8 @@ int stop_all() {
 }
 
 int restart_serv(char servname[]) {
-    char* fname = malloc(sizeof(char) * (32 + strlen(servname)));
+    char* fname;
+    if (!(fname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
 
     strcpy(fname, "/etc/kanrisha.d/available/");
     strcat(fname, servname);
