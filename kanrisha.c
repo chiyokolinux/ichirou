@@ -6,6 +6,7 @@
  * kanrisha list - list all available services
  * kanrisha list enabled - list enabled services
  * kanrisha list running - list running services
+ * kanrisha log service - show latest log of service
  * kanrisha enable service - enable service
  * kanrisha disable service - disable service
  * kanrisha start - start all enabled services
@@ -29,6 +30,7 @@ void help();
 struct servlist get_running_servs();
 struct servlist get_enabled_servs();
 int list(int only_enabled, int only_running);
+int log(char servname[]);
 int enable_serv(char servname[]);
 int disable_serv(char servname[]);
 int start_serv(char servname[]);
@@ -50,6 +52,7 @@ void help() {
            "kanrisha list - list all available services\n"
            "kanrisha list enabled - list enabled services\n"
            "kanrisha list running - list running services\n"
+           "kanrisha log service - show latest log of service\n"
            "kanrisha enable service - enable service\n"
            "kanrisha disable service - disable service\n"
            "kanrisha start - start all enabled services\n"
@@ -159,6 +162,17 @@ int list(int only_enabled, int only_running) {
     return 0;
 }
 
+int log(char servname[]) {
+    char* dirname = strcat("/etc/kanrisha.d/available/", servname);
+    char* logfname = strcat(dirname, "/log");
+    char* fullcmd[] = { "less", logfname, NULL };
+
+    execvp(fullcmd[0], fullcmd);
+
+    perror("execvp");
+    return 1;
+}
+
 int enable_serv(char servname[]) {
     char* dirname = strcat("/etc/kanrisha.d/available/", servname);
     char* dirname_fix = strcat(dirname, "/");
@@ -213,7 +227,7 @@ int start_serv(char servname[]) {
                     char *const args[] = { "--run-by-kanrisha", "true", NULL };
 
                     int fd;
-                    if((fd = open(logfname, O_CREAT | O_WRONLY | O_TRUNC, 0600)) < 0){
+                    if((fd = open(logfname, O_CREAT | O_WRONLY | O_TRUNC, LOGFILEPERMS)) < 0){
                         perror("open");
                         return -1;
                     }
@@ -339,25 +353,27 @@ int main(int argc, char *argv[]) {
     }
     /* i know that this is terrible code. too bad! */
     if (!strcmp(argv[1], "start") && argc == 3) {
-        start_serv(argv[2]);
+        return start_serv(argv[2]);
     } else if (!strcmp(argv[1], "start") && argc == 2) {
-        start_all();
+        return start_all();
     } else if (!strcmp(argv[1], "stop") && argc == 3) {
-        stop_serv(argv[2]);
+        return stop_serv(argv[2]);
     } else if (!strcmp(argv[1], "stop") && argc == 2) {
-        stop_all();
+        return stop_all();
     } else if (!strcmp(argv[1], "restart") && argc == 3) {
-        restart_serv(argv[2]);
+        return restart_serv(argv[2]);
+    } else if (!strcmp(argv[1], "log") && argc == 3) {
+        return log(argv[2]);
     } else if (!strcmp(argv[1], "list") && argc == 2) {
-        list(0, 0);
+        return list(0, 0);
     } else if (!strcmp(argv[1], "list") && !strcmp(argv[2], "enabled")) {
-        list(1, 0);
+        return list(1, 0);
     } else if (!strcmp(argv[1], "list") && !strcmp(argv[2], "running")) {
-        list(0, 1);
+        return list(0, 1);
     } else if (!strcmp(argv[1], "enable") && argc == 3) {
-        enable_serv(argv[2]);
+        return enable_serv(argv[2]);
     } else if (!strcmp(argv[1], "disable") && argc == 3) {
-        disable_serv(argv[2]);
+        return disable_serv(argv[2]);
     } else {
         help();
     }
