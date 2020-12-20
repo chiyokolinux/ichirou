@@ -204,12 +204,23 @@ int start_serv(char servname[]) {
     char* dirname = strcat("/etc/kanrisha.d/available/", servname);
     char* fname = strcat(dirname, "/run");
     char* pidfname = strcat(dirname, "/pid");
+    char* logfname = strcat(dirname, "/log");
     if(access(fname, F_OK|X_OK) != -1) {
         if(access(pidfname, F_OK) == -1) {
             if(access(fname, F_OK|W_OK) != -1) {
                 pid_t child_pid = fork();
                 if (child_pid == 0) {
                     char *const args[] = { "--run-by-kanrisha", "true", NULL };
+
+                    int fd;
+                    if((fd = open(logfname, O_CREAT | O_WRONLY | O_TRUNC, 0600)) < 0){
+                        perror("open");
+                        return -1;
+                    }
+
+                    dup2(fd, 1);
+                    close(fd);
+
                     execvp(fname, args);
                     sleep(3);
                     stop_serv(servname);
@@ -258,14 +269,16 @@ int stop_serv(char servname[]) {
 
         fclose(fp);
 
+        int needtokillproc = 1;
         if(kill((pid_t)pid, SIGTERM) != 0) {
             if (errno == EPERM) {
                 fprintf(stderr, "error: missing permissions\n");
                 return 1;
+            } else if (errno == ESRCH) {
+                needtokillproc = 0;
             }
         }
 
-        int needtokillproc = 1;
         for (int i = 0; i < SIGKILLTIMEOUT; i++) {
             if(kill((pid_t)pid, SIGTERM) != 0) {
                 if (errno == ESRCH) {
