@@ -51,6 +51,9 @@ struct servlist {
     int servc;
 };
 
+/* what should be sent through the socket? */
+char *output;
+
 void malloc_fail() {
     perror("malloc");
     exit(-1);
@@ -79,7 +82,7 @@ struct servlist get_running_servs() {
     struct dirent* dent;
     DIR* srcdir = opendir("/etc/kanrisha.d/available/");
     if(srcdir == NULL) {
-        fprintf(stderr, "error: something went really wrong\n");
+        strcat(output, "error: something went really wrong\n");
         exit(1);
     }
 
@@ -119,7 +122,7 @@ struct servlist get_enabled_servs() {
     struct dirent* dent;
     DIR* srcdir = opendir("/etc/kanrisha.d/enabled/");
     if(srcdir == NULL) {
-        fprintf(stderr, "error: something went really wrong\n");
+        strcat(output, "error: something went really wrong\n");
         exit(1);
     }
 
@@ -147,18 +150,20 @@ int list(int only_enabled, int only_running) {
     if (only_enabled) {
         struct servlist enabledservs = get_enabled_servs();
         for (int servid = 0; servid < enabledservs.servc; servid++) {
-            printf("%s\n", enabledservs.services[servid]);
+            strcat(output, enabledservs.services[servid]);
+            strcat(output, "\n");
         }
     } else if (only_running) {
         struct servlist runningservs = get_running_servs();
         for (int servid = 0; servid < runningservs.servc; servid++) {
-            printf("%s\n", runningservs.services[servid]);
+            strcat(output, runningservs.services[servid]);
+            strcat(output, "\n");
         }
     } else {
         struct dirent* dent;
         DIR* srcdir = opendir("/etc/kanrisha.d/available/");
         if(srcdir == NULL) {
-            fprintf(stderr, "error: something went really wrong\n");
+            strcat(output, "error: something went really wrong\n");
             return 1;
         }
 
@@ -173,7 +178,10 @@ int list(int only_enabled, int only_running) {
                 continue;
             }
 
-            if(S_ISDIR(st.st_mode)) printf("%s\n", dent->d_name);
+            if(S_ISDIR(st.st_mode)) {
+                strcat(output, dent->d_name);
+                strcat(output, "\n");
+            }
         }
         closedir(srcdir);
     }
@@ -230,7 +238,9 @@ int status(char servname[]) {
         FILE *pidf;
         pidf = fopen(pidfname, "r");
         if (pidf == NULL) {
-            fprintf(stderr, "error: %s", strerror(errno));
+            strcat(output, "error: ");
+            strcat(output, strerror(errno));
+            strcat(output, "\n");
             return -1;
         }
 
@@ -245,9 +255,11 @@ int status(char servname[]) {
         }
     }
 
-    printf("%s - %s\n"
+    char tempout[1024];
+    sprintf(tempout, "%s - %s\n"
            "main pid: %d\n\n",
            servname, status, pid);
+    strcat(output, tempout);
 
     free(pidfname);
     free(logfname);
@@ -256,12 +268,14 @@ int status(char servname[]) {
     // you care about compact, fast and beautiful code. we'll just execvp 
     // tail to deal with this absolutely hellish fuckery
 
-    char* fullcmd[] = { "tail", "-n", STATUSLOGLEN, logfname, NULL };
-    execvp(fullcmd[0], fullcmd);
+    // this needed to be removed during daemonization.
 
-    perror("execvp");
+    // char* fullcmd[] = { "tail", "-n", STATUSLOGLEN, logfname, NULL };
+    // execvp(fullcmd[0], fullcmd);
 
-    return 126;
+    // perror("execvp");
+
+    return 0;
 }
 
 int enable_serv(char servname[]) {
@@ -281,19 +295,25 @@ int enable_serv(char servname[]) {
 
         if(symlink(dirname, targetdirname) != 0) {
             if (errno == EACCES) {
-                fprintf(stderr, "error: missing permissions\n");
+                strcat(output, "error: missing permissions\n");
                 return 1;
             } else if (errno == EEXIST) {
-                fprintf(stderr, "error: %s is already enabled\n", servname);
+                strcat(output, "error: ");
+                strcat(output, servname);
+                strcat(output, " is already enabled\n");
                 return 1;
             }
         }
         free(targetdirname);
     } else {
-        fprintf(stderr, "error: %s doesn't exist\n", servname);
+        strcat(output, "error: ");
+        strcat(output, servname);
+        strcat(output, " doesn't exist\n", servname);
         return 1;
     }
-    printf("service %s has been enabled\n", servname);
+    strcat(output, "service ");
+    strcat(output, servname);
+    strcat(output, " has been enabled\n", servname);
 
     free(dirname);
 
@@ -311,15 +331,19 @@ int disable_serv(char servname[]) {
     if(access(dirname, F_OK) != -1) {
         if (unlink(dirname) != 0) {
             if (errno == EACCES || errno == EPERM) {
-                fprintf(stderr, "error: missing permissions\n");
+                strcat(output, "error: missing permissions\n");
                 return 1;
             }
         }
     } else {
-        fprintf(stderr, "error: %s is already disabled\n", servname);
+        strcat(output, "error: ");
+        strcat(output, servname);
+        strcat(output, " is already disabled\n");
         return 1;
     }
-    printf("service %s has been disabled\n", servname);
+    strcat(output, "service ");
+    strcat(output, servname);
+    strcat(output, " has been disabled\n", servname);
 
     free(dirname);
 
@@ -327,7 +351,9 @@ int disable_serv(char servname[]) {
 }
 
 int start_serv(char servname[]) {
-    printf("starting service %s...\n", servname);
+    strcat(output, "starting service ");
+    strcat(output, servname);
+    strcat(output, "...\n");
 
     char* fname;
     char* pidfname;
@@ -371,18 +397,24 @@ int start_serv(char servname[]) {
                     fclose(fp);
                 }
             } else {
-                fprintf(stderr, "error: missing permissions\n");
+                strcat(output, "error: missing permissions\n");
                 return 1;
             }
         } else {
-            fprintf(stderr, "error: %s is already running\n", servname);
+            strcat(output, "error: ");
+            strcat(output, servname);
+            strcat(output, " is already running\n");
             return 1;
         }
     } else {
-        fprintf(stderr, "error: %s doesn't exist\n", servname);
+        strcat(output, "error: ");
+        strcat(output, servname);
+        strcat(output, " doesn't exist\n", servname);
         return 1;
     }
-    printf("service %s has been started\n", servname);
+    strcat(output, "service ");
+    strcat(output, servname);
+    strcat(output, " has been started\n", servname);
 
     free(fname);
     free(pidfname);
@@ -401,7 +433,9 @@ int start_all() {
 }
 
 int stop_serv(char servname[]) {
-    printf("stopping service %s...\n", servname);
+    strcat(output, "stopping service ");
+    strcat(output, servname);
+    strcat(output, "...\n");
 
     char* fname;
     if (!(fname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
@@ -422,7 +456,7 @@ int stop_serv(char servname[]) {
         int needtokillproc = 1;
         if(kill((pid_t)pid, SIGTERM) != 0) {
             if (errno == EPERM) {
-                fprintf(stderr, "error: missing permissions\n");
+                strcat(output, "error: missing permissions\n");
                 return 1;
             } else if (errno == ESRCH) {
                 needtokillproc = 0;
@@ -438,24 +472,32 @@ int stop_serv(char servname[]) {
             }
         }
         if (needtokillproc) {
-            printf("service %s won't terminate, killing it\n", servname);
+            strcat(output, "service ");
+            strcat(output, servname);
+            strcat(output, " won't terminate, killing it\n");
             if(kill((pid_t)pid, SIGKILL) != 0) {
                 if (errno == EPERM) {
-                    fprintf(stderr, "error: missing permissions\n");
+                    strcat(output, "error: missing permissions\n");
                     return 1;
                 }
             }
         }
 
         if (unlink(fname) != 0) {
-            fprintf(stderr, "error: cannot delete pidfile. please remove it manually or problems will occur ( %s )\n", strerror(errno));
+            strcat(output, "error: cannot delete pidfile. please remove it manually or problems will occur ( ");
+            strcat(output, strerror(errno));
+            strcat(output, " )\n");
             return 1;
         }
     } else {
-        fprintf(stderr, "error: %s isn't running\n", servname);
+        strcat(output, "error: ");
+        strcat(output, servname);
+        strcat(output, " isn't running\n");
         return 1;
     }
-    printf("service %s has been stopped\n", servname);
+    strcat(output, "service ");
+    strcat(output, servname);
+    strcat(output, " has been stopped\n", servname);
 
     free(fname);
 
@@ -483,10 +525,14 @@ int restart_serv(char servname[]) {
         stop_serv(servname);
         start_serv(servname);
     } else {
-        fprintf(stderr, "error: %s isn't running\n", servname);
+        strcat(output, "error: ");
+        strcat(output, servname);
+        strcat(output, " isn't running\n");
         return 1;
     }
-    printf("service %s has been restarted\n", servname);
+    strcat(output, "service ");
+    strcat(output, servname);
+    strcat(output, " has been restarted\n", servname);
 
     free(fname);
 
@@ -503,6 +549,8 @@ int rundaemon() {
     int pos = 0;
     ssize_t count = 0;
     unsigned char *command = malloc(sizeof(char) * (MAXSERVICES + 18));
+    output = malloc(sizeof(char) * (2048 + MAXSERVICES));
+    strcpy(output, "");
 
     /* main command loop */
     while (1) {
@@ -576,6 +624,7 @@ int rundaemon() {
                     break;
             }
             write(outfd, retval, sizeof(unsigned char));
+            write(outfd, output, sizeof(char) * (strlen(output) + 1));
         }
 
         /* close fifos and init next session */
