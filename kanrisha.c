@@ -42,6 +42,7 @@ int start_all();
 int stop_serv(char servname[]);
 int stop_all();
 int restart_serv(char servname[]);
+int rundaemon();
 
 #include "config.h"
 
@@ -68,7 +69,8 @@ void help() {
            "kanrisha start - start all enabled services\n"
            "kanrisha start service - start service\n"
            "kanrisha stop - stop all running services\n"
-           "kanrisha restart service - restart service\n");
+           "kanrisha restart service - restart service\n"
+           "kanrisha daemon - run main daemon in background\n");
 }
 
 struct servlist get_running_servs() {
@@ -491,6 +493,97 @@ int restart_serv(char servname[]) {
     return 0;
 }
 
+int rundaemon() {
+    /* init fifos */
+    mkfifo(CMDFIFOPATH, 0620);
+    mkfifo(OUTFIFOPATH, 0640);
+
+    /* init variables */
+    unsigned char *buf = NULL;
+    int pos = 0;
+    ssize_t count = 0;
+    unsigned char *command = malloc(sizeof(char) * (MAXSERVICES + 18));
+
+    /* main command loop */
+    while (1) {
+        /* open cmd fifo as read-only */
+        int cmdfd = open(CMDFIFOPATH, O_RDONLY);
+        if (cmdfd < 0) {
+            perror("open");
+            return -1;
+        }
+
+        /* open output fifo as write-only */
+        int outfd = open(OUTFIFOPATH, O_WRONLY);
+        if (outfd < 0) {
+            perror("open");
+            return -1;
+        }
+
+        /* read command session */
+        while (count != 0) {
+            do {
+                count = read(cmdfd, &buf, sizeof(char));
+                if (buf != '\n')
+                    command[pos++] = *buf;
+                else
+                    break;
+            } while (count != 0);
+
+            int retval = 0;
+            char *servname = command;
+            servname++;
+
+            switch (command[0]) {
+                case 0x1A:
+                    retval = start_serv(servname);
+                    break;
+                case 0x1B:
+                    retval = start_all();
+                    break;
+                case 0x1C:
+                    retval = stop_serv(servname);
+                    break;
+                case 0x1D:
+                    retval = stop_all();
+                    break;
+                case 0x1E:
+                    retval = restart_serv(servname);
+                    break;
+                case 0x2A:
+                    retval = status(servname);
+                    break;
+                case 0x2B:
+                    retval = showlog(servname);
+                    break;
+                case 0x3A:
+                    retval = list(0, 0);
+                    break;
+                case 0x3B:
+                    retval = list(1, 0);
+                    break;
+                case 0x3C:
+                    retval = list(0, 1);
+                    break;
+                case 0x4A:
+                    retval = enable_serv(servname);
+                    break;
+                case 0x4B:
+                    retval = disable_serv(servname);
+                    break;
+                default:
+                    retval = 255;
+                    break;
+            }
+            write(outfd, retval, sizeof(unsigned char));
+        }
+
+        /* close fifos and init next session */
+        close(cmdfd);
+        close(outfd);
+    }
+}
+
 int main(int argc, char *argv[]) {
     if (argc != 2 && argc != 3) {
         help();
@@ -521,6 +614,8 @@ int main(int argc, char *argv[]) {
         return enable_serv(argv[2]);
     } else if (!strcmp(argv[1], "disable") && argc == 3) {
         return disable_serv(argv[2]);
+    } else if (!strcmp(argv[1], "daemon") && argc == 2) {
+        return rundaemon();
     } else {
         help();
     }

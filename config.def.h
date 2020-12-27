@@ -9,3 +9,6 @@ static char *const servstopcmd[]    = { "/bin/kanrisha", "stop",   NULL };
 
 #define LOGFILEPERMS    0600
 #define STATUSLOGLEN    "8"
+
+#define CMDFIFOPATH     "/tmp/kanrisha.cmd.sock"
+#define OUTFIFOPATH     "/tmp/kanrisha.out.sock"
