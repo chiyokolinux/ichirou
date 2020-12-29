@@ -287,7 +287,7 @@ int enable_serv(char servname[]) {
     strcat(dirname, "/");
 
     if(access(dirname, F_OK) != -1) {
-        char* targetdirname
+        char* targetdirname;
         if (!(targetdirname = malloc(sizeof(char) * (28 + strlen(servname))))) malloc_fail();
 
         strcpy(targetdirname, "/etc/kanrisha.d/enabled/");
@@ -308,12 +308,12 @@ int enable_serv(char servname[]) {
     } else {
         strcat(output, "error: ");
         strcat(output, servname);
-        strcat(output, " doesn't exist\n", servname);
+        strcat(output, " doesn't exist\n");
         return 1;
     }
     strcat(output, "service ");
     strcat(output, servname);
-    strcat(output, " has been enabled\n", servname);
+    strcat(output, " has been enabled\n");
 
     free(dirname);
 
@@ -343,7 +343,7 @@ int disable_serv(char servname[]) {
     }
     strcat(output, "service ");
     strcat(output, servname);
-    strcat(output, " has been disabled\n", servname);
+    strcat(output, " has been disabled\n");
 
     free(dirname);
 
@@ -409,12 +409,12 @@ int start_serv(char servname[]) {
     } else {
         strcat(output, "error: ");
         strcat(output, servname);
-        strcat(output, " doesn't exist\n", servname);
+        strcat(output, " doesn't exist\n");
         return 1;
     }
     strcat(output, "service ");
     strcat(output, servname);
-    strcat(output, " has been started\n", servname);
+    strcat(output, " has been started\n");
 
     free(fname);
     free(pidfname);
@@ -497,7 +497,7 @@ int stop_serv(char servname[]) {
     }
     strcat(output, "service ");
     strcat(output, servname);
-    strcat(output, " has been stopped\n", servname);
+    strcat(output, " has been stopped\n");
 
     free(fname);
 
@@ -532,7 +532,7 @@ int restart_serv(char servname[]) {
     }
     strcat(output, "service ");
     strcat(output, servname);
-    strcat(output, " has been restarted\n", servname);
+    strcat(output, " has been restarted\n");
 
     free(fname);
 
@@ -572,14 +572,14 @@ int rundaemon() {
         while (count != 0) {
             do {
                 count = read(cmdfd, &buf, sizeof(char));
-                if (buf != '\n')
+                if (*buf != '\n')
                     command[pos++] = *buf;
                 else
                     break;
             } while (count != 0);
 
             int retval = 0;
-            char *servname = command;
+            char *servname = (char *)command;
             servname++;
 
             switch (command[0]) {
@@ -623,7 +623,7 @@ int rundaemon() {
                     retval = 255;
                     break;
             }
-            write(outfd, retval, sizeof(unsigned char));
+            write(outfd, &retval, sizeof(unsigned char));
             write(outfd, output, sizeof(char) * (strlen(output) + 1));
         }
 
