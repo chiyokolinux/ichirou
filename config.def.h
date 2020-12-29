@@ -6,6 +6,7 @@ static char *const servstopcmd[]    = { "/bin/kanrisha", "stop",   NULL };
 
 #define SIGKILLTIMEOUT  10
 #define MAXSERVICES     512
+#define MAXSVCRESTART   128
 
 #define LOGFILEPERMS    0600
 #define STATUSLOGLEN    "8"

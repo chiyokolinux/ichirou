@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <signal.h>
+#include <sys/wait.h>
 #include <errno.h>
 #include <dirent.h>
 #include <sys/stat.h>
@@ -43,6 +44,7 @@ int stop_serv(char servname[]);
 int stop_all();
 int restart_serv(char servname[]);
 int rundaemon();
+void sigchld_handler(int signo);
 
 #include "config.h"
 
@@ -50,6 +52,17 @@ struct servlist {
     char services[MAXSERVICES][256];
     int servc;
 };
+
+struct service {
+    char *name; /* name of service, for restarting */
+    pid_t procid; /* same as /etc/kanrisha.d/available/<service>/pid */
+    int restart_when_dead; /* should we (still) restart? */
+    int restart_times; /* how many times was the service restarted? used to prevent 100% cpu from instantly dying services */
+    int exited_normally; /* set if retval = 0 || stopped by kanrisha stop */
+};
+
+struct service **services;
+int service_count = 0;
 
 /* what should be sent through the socket? */
 char *output;
@@ -540,6 +553,9 @@ int restart_serv(char servname[]) {
 }
 
 int rundaemon() {
+    if (signal(SIGCHLD, sigchld_handler) == SIG_ERR)
+        perror("signal");
+
     /* init fifos */
     mkfifo(CMDFIFOPATH, 0620);
     mkfifo(OUTFIFOPATH, 0640);
@@ -630,6 +646,37 @@ int rundaemon() {
         /* close fifos and init next session */
         close(cmdfd);
         close(outfd);
+    }
+
+    unlink(CMDFIFOPATH);
+    unlink(OUTFIFOPATH);
+}
+
+void sigchld_handler(int signo) {
+    if (signo == SIGCHLD) {
+        pid_t chpid;
+        int status;
+        while ((chpid = waitpid(-1, &status, WNOHANG)) > 0) {
+            int i;
+            for (i = 0; i < service_count; i++) {
+                if (chpid == services[i]->procid)
+                    break;
+            }
+
+            if (WIFEXITED(status) || WIFSIGNALED(status)) {
+                int retval = WEXITSTATUS(status);
+                if (retval == 0 && !WIFSIGNALED(status)) {
+                    services[i]->exited_normally = 1;
+                } else {
+                    services[i]->exited_normally = 0;
+                }
+
+                if (services[i]->restart_when_dead && services[i]->restart_times < MAXSVCRESTART) {
+                    start_serv(services[i]->name);
+                    services[i]->restart_times++;
+                }
+            }
+        }
     }
 }
 
