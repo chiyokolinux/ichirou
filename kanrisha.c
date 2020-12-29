@@ -584,6 +584,8 @@ int rundaemon() {
             return -1;
         }
 
+        strcpy(output, "");
+
         /* read command session */
         while (count != 0) {
             do {
@@ -672,7 +674,10 @@ void sigchld_handler(int signo) {
                 }
 
                 if (services[i]->restart_when_dead && services[i]->restart_times < MAXSVCRESTART) {
+                    strcpy(output, "");
+                    stop_serv(services[i]->name);
                     start_serv(services[i]->name);
+                    strcpy(output, "");
                     services[i]->restart_times++;
                 }
             }
