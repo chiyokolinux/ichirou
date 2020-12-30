@@ -45,6 +45,7 @@ int stop_all();
 int restart_serv(char servname[]);
 int rundaemon();
 void sigchld_handler(int signo);
+int daemon_send(unsigned char command, char servname[]);
 
 #include "config.h"
 
@@ -589,8 +590,8 @@ int rundaemon() {
         /* read command session */
         while (count != 0) {
             do {
-                count = read(cmdfd, &buf, sizeof(char));
-                if (*buf != '\n')
+                count = read(cmdfd, &buf, sizeof(unsigned char));
+                if (*buf != '\0')
                     command[pos++] = *buf;
                 else
                     break;
@@ -639,10 +640,16 @@ int rundaemon() {
                     break;
                 default:
                     retval = 255;
+                    strcpy(output, "error: unrecognized command\n");
                     break;
             }
-            write(outfd, &retval, sizeof(unsigned char));
-            write(outfd, output, sizeof(char) * (strlen(output) + 1));
+            write(outfd, &retval, sizeof(int));
+
+            /* so that we don't need to write >2kb to the pipe,
+               most of which would be random gargabe bytes */
+            size_t writesize = sizeof(char) * (strlen(output) + 1);
+            write(outfd, &writesize, sizeof(size_t));
+            write(outfd, output, writesize);
         }
 
         /* close fifos and init next session */
@@ -685,6 +692,49 @@ void sigchld_handler(int signo) {
     }
 }
 
+int daemon_send(unsigned char command, char servname[]) {
+    /* open cmd fifo as write-only */
+    int cmdfd = open(CMDFIFOPATH, O_WRONLY);
+    if (cmdfd < 0) {
+        if (errno == ENOENT) {
+            fprintf(stderr, "could not connect to kanrisha daemon, it is most likely not running.");
+            return -3;
+        }
+        perror("open");
+        return -1;
+    }
+
+    /* open output fifo as read-only */
+    int outfd = open(OUTFIFOPATH, O_RDONLY);
+    if (outfd < 0) {
+        if (errno == ENOENT) {
+            fprintf(stderr, "could not connect to kanrisha daemon, it is most likely not running.");
+            return -3;
+        }
+        perror("open");
+        return -1;
+    }
+
+    write(cmdfd, &command, sizeof(unsigned char));
+
+    if (servname != NULL) {
+        write(cmdfd, servname, sizeof(char) * (strlen(servname) + 1));
+    }
+
+    int retval = 0;
+    read(outfd, &retval, sizeof(int));
+
+    output = malloc(sizeof(char) * (2048 + MAXSERVICES));
+    size_t readsize;
+    read(outfd, &readsize, sizeof(size_t));
+    read(outfd, output, readsize);
+
+    printf("%s", output);
+    fflush(stdout);
+
+    return retval;
+}
+
 int main(int argc, char *argv[]) {
     if (argc != 2 && argc != 3) {
         help();
@@ -692,29 +742,29 @@ int main(int argc, char *argv[]) {
     }
     /* i know that this is terrible code. too bad! */
     if (!strcmp(argv[1], "start") && argc == 3) {
-        return start_serv(argv[2]);
+        return daemon_send(0x1A, argv[2]);
     } else if (!strcmp(argv[1], "start") && argc == 2) {
-        return start_all();
+        return daemon_send(0x1B, NULL);
     } else if (!strcmp(argv[1], "stop") && argc == 3) {
-        return stop_serv(argv[2]);
+        return daemon_send(0x1C, argv[2]);
     } else if (!strcmp(argv[1], "stop") && argc == 2) {
-        return stop_all();
+        return daemon_send(0x1D, NULL);
     } else if (!strcmp(argv[1], "restart") && argc == 3) {
-        return restart_serv(argv[2]);
+        return daemon_send(0x1E, argv[2]);
     } else if (!strcmp(argv[1], "status") && argc == 3) {
-        return status(argv[2]);
+        return daemon_send(0x2A, argv[2]);
     } else if (!strcmp(argv[1], "log") && argc == 3) {
-        return showlog(argv[2]);
+        return daemon_send(0x2B, argv[2]);
     } else if (!strcmp(argv[1], "list") && argc == 2) {
-        return list(0, 0);
+        return daemon_send(0x3A, NULL);
     } else if (!strcmp(argv[1], "list") && !strcmp(argv[2], "enabled")) {
-        return list(1, 0);
+        return daemon_send(0x3B, NULL);
     } else if (!strcmp(argv[1], "list") && !strcmp(argv[2], "running")) {
-        return list(0, 1);
+        return daemon_send(0x3C, NULL);
     } else if (!strcmp(argv[1], "enable") && argc == 3) {
-        return enable_serv(argv[2]);
+        return daemon_send(0x4A, argv[2]);
     } else if (!strcmp(argv[1], "disable") && argc == 3) {
-        return disable_serv(argv[2]);
+        return daemon_send(0x4B, argv[2]);
     } else if (!strcmp(argv[1], "daemon") && argc == 2) {
         return rundaemon();
     } else {
