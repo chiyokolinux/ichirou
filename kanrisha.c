@@ -56,7 +56,7 @@ struct servlist {
 
 struct service {
     char *name; /* name of service, for restarting */
-    pid_t procid; /* same as /etc/kanrisha.d/available/<service>/pid */
+    pid_t procid; /* used to be /etc/kanrisha.d/available/<service>/pid */
     int restart_when_dead; /* should we (still) restart? */
     int restart_times; /* how many times was the service restarted? used to prevent 100% cpu from instantly dying services */
     int exited_normally; /* set if retval = 0 || stopped by kanrisha stop */
@@ -405,10 +405,14 @@ int start_serv(char servname[]) {
                     stop_serv(servname);
                     exit(-1);
                 } else {
-                    FILE *fp;
-                    fp = fopen(pidfname, "w+");
-                    fprintf(fp, "%d\n", child_pid);
-                    fclose(fp);
+                    struct service *started_serv = malloc(sizeof(struct service));
+                    started_serv->name = strdup(servname);
+                    started_serv->procid = child_pid;
+                    started_serv->restart_when_dead = 1;
+                    started_serv->restart_times = 0;
+                    started_serv->exited_normally = 0;
+
+                    services[service_count++] = started_serv;
                 }
             } else {
                 strcat(output, "error: missing permissions\n");
