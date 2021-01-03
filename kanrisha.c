@@ -101,29 +101,8 @@ struct servlist get_running_servs() {
     }
 
     while((dent = readdir(srcdir)) != NULL) {
-        struct stat st;
-
-        if(strcmp(dent->d_name, ".") == 0 || strcmp(dent->d_name, "..") == 0)
-            continue;
-
-        if(fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
-            perror(dent->d_name);
-            continue;
-        }
-
-        if(S_ISDIR(st.st_mode)) {
-            char* pidfname;
-            if (!(pidfname = malloc(sizeof(char) * (32 + strlen(dent->d_name))))) malloc_fail();
-
-            strcpy(pidfname, "/etc/kanrisha.d/available/");
-            strcat(pidfname, dent->d_name);
-            strcat(pidfname, "/pid");
-
-            if(access(pidfname, F_OK) == -1) {
-                // servs[dir_count++] = dent->d_name;
-                strcpy(servslist.services[servslist.servc++], dent->d_name);
-            }
-            free(pidfname);
+        for (int i = 0; i < service_count; i++) {
+            strcpy(servslist.services[servslist.servc++], services[i]->name);
         }
     }
     closedir(srcdir);
@@ -235,32 +214,24 @@ int status(char servname[]) {
      * the bases of chiyoko before dealing with these minor details.
     **/
 
-    char* pidfname;
     char* logfname;
-    if (!(pidfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
     if (!(logfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
 
-    strcpy(pidfname, "/etc/kanrisha.d/available/");
-    strcat(pidfname, servname);
-    strcpy(logfname, pidfname);
-    strcat(pidfname, "/pid");
+    strcpy(logfname, "/etc/kanrisha.d/available/");
+    strcat(logfname, servname);
     strcat(logfname, "/log");
 
-    char status[12] = "not running";
-    pid_t pid = -1;
-    if(access(pidfname, F_OK) != -1) {
-        FILE *pidf;
-        pidf = fopen(pidfname, "r");
-        if (pidf == NULL) {
-            strcat(output, "error: ");
-            strcat(output, strerror(errno));
-            strcat(output, "\n");
-            return -1;
+    int running = 0, i;
+    for (i = 0; i < service_count; i++) {
+        if (!strcmp(services[i]->name, servname)) {
+            running = 1;
+            break;
         }
+    }
 
-        fscanf(pidf, "%d", &pid);
-        fclose(pidf);
-
+    char status[12] = "not running";
+    pid_t pid = running ? services[i]->procid : -1;
+    if(running) {
         kill(pid, 0);
         if (errno == ESRCH) {
             strcpy(status, "dead");
@@ -275,7 +246,6 @@ int status(char servname[]) {
            servname, status, pid);
     strcat(output, tempout);
 
-    free(pidfname);
     free(logfname);
 
     // printing the last lines of a file in C is a fucking nightmare when 
@@ -370,58 +340,55 @@ int start_serv(char servname[]) {
     strcat(output, "...\n");
 
     char* fname;
-    char* pidfname;
     char* logfname;
     if (!(fname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
-    if (!(pidfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
-    if (!(pidfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
 
     strcpy(fname, "/etc/kanrisha.d/available/");
     strcat(fname, servname);
-    strcpy(pidfname, fname);
     strcpy(logfname, fname);
     strcat(fname, "/run");
-    strcat(pidfname, "/pid");
     strcat(logfname, "/log");
 
-    if(access(fname, F_OK|X_OK) != -1) {
-        if(access(pidfname, F_OK) == -1) {
-            if(access(fname, F_OK|W_OK) != -1) {
-                pid_t child_pid = fork();
-                if (child_pid == 0) {
-                    char *const args[] = { "--run-by-kanrisha", "true", NULL };
-
-                    int fd;
-                    if((fd = open(logfname, O_CREAT | O_WRONLY | O_TRUNC, LOGFILEPERMS)) < 0){
-                        perror("open");
-                        return -1;
-                    }
-
-                    dup2(fd, 1);
-                    close(fd);
-
-                    execvp(fname, args);
-                    sleep(3);
-                    stop_serv(servname);
-                    exit(-1);
-                } else {
-                    struct service *started_serv = malloc(sizeof(struct service));
-                    started_serv->name = strdup(servname);
-                    started_serv->procid = child_pid;
-                    started_serv->restart_when_dead = 1;
-                    started_serv->restart_times = 0;
-                    started_serv->exited_normally = 0;
-
-                    services[service_count++] = started_serv;
-                }
-            } else {
-                strcat(output, "error: missing permissions\n");
-                return 1;
-            }
-        } else {
+    for (int i = 0; i < service_count; i++) {
+        if (!strcmp(services[i]->name, servname)) {
             strcat(output, "error: ");
             strcat(output, servname);
             strcat(output, " is already running\n");
+            return 1;
+        }
+    }
+
+    if(access(fname, F_OK|X_OK) != -1) {
+        if(access(fname, F_OK|W_OK) != -1) {
+            pid_t child_pid = fork();
+            if (child_pid == 0) {
+                char *const args[] = { "--run-by-kanrisha", "true", NULL };
+
+                int fd;
+                if((fd = open(logfname, O_CREAT | O_WRONLY | O_TRUNC, LOGFILEPERMS)) < 0){
+                    perror("open");
+                    return -1;
+                }
+
+                dup2(fd, 1);
+                close(fd);
+
+                execvp(fname, args);
+                sleep(3);
+                stop_serv(servname);
+                exit(-1);
+            } else {
+                struct service *started_serv = malloc(sizeof(struct service));
+                started_serv->name = strdup(servname);
+                started_serv->procid = child_pid;
+                started_serv->restart_when_dead = 1;
+                started_serv->restart_times = 0;
+                started_serv->exited_normally = 0;
+
+                services[service_count++] = started_serv;
+            }
+        } else {
+            strcat(output, "error: missing permissions\n");
             return 1;
         }
     } else {
@@ -435,7 +402,6 @@ int start_serv(char servname[]) {
     strcat(output, " has been started\n");
 
     free(fname);
-    free(pidfname);
     free(logfname);
 
     return 0;
@@ -455,24 +421,17 @@ int stop_serv(char servname[]) {
     strcat(output, servname);
     strcat(output, "...\n");
 
-    char* fname;
-    if (!(fname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
+    int running = 0, i;
+    for (i = 0; i < service_count; i++) {
+        if (!strcmp(services[i]->name, servname)) {
+            running = 1;
+            break;
+        }
+    }
 
-    strcpy(fname, "/etc/kanrisha.d/available/");
-    strcat(fname, servname);
-    strcat(fname, "/pid");
-
-    if(access(fname, F_OK|R_OK) != -1) {
-        FILE *fp;
-        fp = fopen(fname, "r");
-
-        int pid;
-        fscanf(fp, "%d", &pid);
-
-        fclose(fp);
-
+    if(running) {
         int needtokillproc = 1;
-        if(kill((pid_t)pid, SIGTERM) != 0) {
+        if(kill(services[i]->procid, SIGTERM) != 0) {
             if (errno == EPERM) {
                 strcat(output, "error: missing permissions\n");
                 return 1;
@@ -482,7 +441,7 @@ int stop_serv(char servname[]) {
         }
 
         for (int i = 0; i < SIGKILLTIMEOUT; i++) {
-            if(kill((pid_t)pid, SIGTERM) != 0) {
+            if(kill(services[i]->procid, SIGTERM) != 0) {
                 if (errno == ESRCH) {
                     needtokillproc = 0;
                     break;
@@ -493,19 +452,12 @@ int stop_serv(char servname[]) {
             strcat(output, "service ");
             strcat(output, servname);
             strcat(output, " won't terminate, killing it\n");
-            if(kill((pid_t)pid, SIGKILL) != 0) {
+            if(kill(services[i]->procid, SIGKILL) != 0) {
                 if (errno == EPERM) {
                     strcat(output, "error: missing permissions\n");
                     return 1;
                 }
             }
-        }
-
-        if (unlink(fname) != 0) {
-            strcat(output, "error: cannot delete pidfile. please remove it manually or problems will occur ( ");
-            strcat(output, strerror(errno));
-            strcat(output, " )\n");
-            return 1;
         }
     } else {
         strcat(output, "error: ");
@@ -516,8 +468,6 @@ int stop_serv(char servname[]) {
     strcat(output, "service ");
     strcat(output, servname);
     strcat(output, " has been stopped\n");
-
-    free(fname);
 
     return 0;
 }
@@ -532,14 +482,15 @@ int stop_all() {
 }
 
 int restart_serv(char servname[]) {
-    char* fname;
-    if (!(fname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
+    int running = 0, i;
+    for (i = 0; i < service_count; i++) {
+        if (!strcmp(services[i]->name, servname)) {
+            running = 1;
+            break;
+        }
+    }
 
-    strcpy(fname, "/etc/kanrisha.d/available/");
-    strcat(fname, servname);
-    strcat(fname, "/pid");
-
-    if(access(fname, F_OK|R_OK) != -1) {
+    if (running) {
         stop_serv(servname);
         start_serv(servname);
     } else {
@@ -551,8 +502,6 @@ int restart_serv(char servname[]) {
     strcat(output, "service ");
     strcat(output, servname);
     strcat(output, " has been restarted\n");
-
-    free(fname);
 
     return 0;
 }
