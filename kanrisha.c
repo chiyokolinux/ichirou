@@ -650,7 +650,7 @@ int daemon_send(unsigned char command, char servname[]) {
     int cmdfd = open(CMDFIFOPATH, O_WRONLY);
     if (cmdfd < 0) {
         if (errno == ENOENT) {
-            fprintf(stderr, "could not connect to kanrisha daemon, it is most likely not running.");
+            fprintf(stderr, "could not connect to kanrisha daemon, it is most likely not running.\n");
             return -3;
         }
         perror("open");
@@ -661,7 +661,7 @@ int daemon_send(unsigned char command, char servname[]) {
     int outfd = open(OUTFIFOPATH, O_RDONLY);
     if (outfd < 0) {
         if (errno == ENOENT) {
-            fprintf(stderr, "could not connect to kanrisha daemon, it is most likely not running.");
+            fprintf(stderr, "could not connect to kanrisha daemon, it is most likely not running.\n");
             return -3;
         }
         perror("open");
