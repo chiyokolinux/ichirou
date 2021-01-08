@@ -58,7 +58,7 @@ int main(void) {
     /* if not pid 1, exit */
     if (getpid() != 1) {
         fprintf(stderr, "This program must be run with PID 1\n");
-    	return 1;
+        return 1;
     }
 
     /* start system initialization script */
@@ -73,8 +73,8 @@ int main(void) {
         sigwait(&set, &signal);
         for (i = 0; i < LEN(signalmap); i++) {
             if (signalmap[i].signal == signal) {
-            	signalmap[i].handler();
-            	break;
+                signalmap[i].handler();
+                break;
             }
         }
     }
