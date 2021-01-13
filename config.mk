@@ -1,4 +1,4 @@
-VERSION = 1.2
+VERSION = 1.7
 
 PREFIX =
 MANPREFIX = $(PREFIX)/share/man
