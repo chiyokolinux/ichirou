@@ -248,8 +248,8 @@ int status(char servname[]) {
 
     free(logfname);
 
-    // printing the last lines of a file in C is a fucking nightmare when 
-    // you care about compact, fast and beautiful code. we'll just execvp 
+    // printing the last lines of a file in C is a fucking nightmare when
+    // you care about compact, fast and beautiful code. we'll just execvp
     // tail to deal with this absolutely hellish fuckery
 
     // this needed to be removed during daemonization.
@@ -521,6 +521,9 @@ int rundaemon() {
     unsigned char *command = malloc(sizeof(char) * (MAXSERVICES + 18));
     output = malloc(sizeof(char) * (2048 + MAXSERVICES));
     strcpy(output, "");
+
+    /* start all enabled, since `kanrisha daemon` will probably only be run on boot. */
+    start_all();
 
     /* main command loop */
     while (1) {
