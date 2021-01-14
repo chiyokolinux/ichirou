@@ -1,6 +1,6 @@
 VERSION = 1.8
 
-PREFIX =
+PREFIX = /usr
 MANPREFIX = $(PREFIX)/share/man
 
 CC = gcc
