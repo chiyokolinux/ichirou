@@ -92,12 +92,12 @@ struct servlist get_running_servs() {
 
     struct dirent* dent;
     DIR* srcdir = opendir("/etc/kanrisha.d/available/");
-    if(srcdir == NULL) {
+    if (srcdir == NULL) {
         perror("get_running_servs(): opendir");
         exit(1);
     }
 
-    while((dent = readdir(srcdir)) != NULL) {
+    while ((dent = readdir(srcdir)) != NULL) {
         for (int i = 0; i < service_count; i++) {
             strcpy(servslist.services[servslist.servc++], services[i]->name);
         }
@@ -111,23 +111,23 @@ struct servlist get_enabled_servs() {
 
     struct dirent* dent;
     DIR* srcdir = opendir("/etc/kanrisha.d/enabled/");
-    if(srcdir == NULL) {
+    if (srcdir == NULL) {
         perror("get_enabled_servs(): opendir");
         exit(1);
     }
 
-    while((dent = readdir(srcdir)) != NULL) {
+    while ((dent = readdir(srcdir)) != NULL) {
         struct stat st;
 
-        if(strcmp(dent->d_name, ".") == 0 || strcmp(dent->d_name, "..") == 0)
+        if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, ".."))
             continue;
 
-        if(fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
+        if (fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
             perror("get_enabled_servs(): fstatat");
             continue;
         }
 
-        if(S_ISDIR(st.st_mode)) {
+        if (S_ISDIR(st.st_mode)) {
             // servs[dir_count++] = dent->d_name;
             strcpy(servslist.services[servslist.servc++], dent->d_name);
         }
@@ -150,23 +150,23 @@ int list(int only_enabled, int only_running) {
     } else {
         struct dirent* dent;
         DIR* srcdir = opendir("/etc/kanrisha.d/available/");
-        if(srcdir == NULL) {
+        if (srcdir == NULL) {
             perror("list(): opendir");
             return 1;
         }
 
-        while((dent = readdir(srcdir)) != NULL) {
+        while ((dent = readdir(srcdir)) != NULL) {
             struct stat st;
 
-            if(strcmp(dent->d_name, ".") == 0 || strcmp(dent->d_name, "..") == 0)
+            if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, ".."))
                 continue;
 
-            if(fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
+            if (fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
                 perror("list(): fstatat");
                 continue;
             }
 
-            if(S_ISDIR(st.st_mode)) {
+            if (S_ISDIR(st.st_mode)) {
                 printf("%s\n", dent->d_name);
             }
         }
@@ -225,7 +225,7 @@ int status(char servname[]) {
 
     char status[12] = "not running";
     pid_t pid = running ? services[i]->procid : -1;
-    if(running) {
+    if (running) {
         kill(pid, 0);
         if (errno == ESRCH) {
             strcpy(status, "dead");
@@ -264,14 +264,14 @@ int enable_serv(char servname[]) {
     strcat(dirname, servname);
     strcat(dirname, "/");
 
-    if(access(dirname, F_OK) != -1) {
+    if (access(dirname, F_OK) != -1) {
         char* targetdirname;
         if (!(targetdirname = malloc(sizeof(char) * (28 + strlen(servname))))) malloc_fail();
 
         strcpy(targetdirname, "/etc/kanrisha.d/enabled/");
         strcat(targetdirname, servname);
 
-        if(symlink(dirname, targetdirname) != 0) {
+        if (symlink(dirname, targetdirname) != 0) {
             if (errno == EEXIST) {
                 fprintf(stderr, "error: %s is already enabled\n", servname);
                 return 1;
@@ -300,7 +300,7 @@ int disable_serv(char servname[]) {
     strcat(dirname, servname);
     strcat(dirname, "/");
 
-    if(access(dirname, F_OK) != -1) {
+    if (access(dirname, F_OK) != -1) {
         if (unlink(dirname) != 0) {
             perror("disable_serv(): unlink");
             return 1;
@@ -336,14 +336,14 @@ int start_serv(char servname[]) {
         }
     }
 
-    if(access(fname, F_OK|X_OK) != -1) {
-        if(access(fname, F_OK|W_OK) != -1) {
+    if (access(fname, F_OK|X_OK) != -1) {
+        if (access(fname, F_OK|W_OK) != -1) {
             pid_t child_pid = fork();
             if (child_pid == 0) {
                 char *const args[] = { "--run-by-kanrisha", "true", NULL };
 
                 int fd;
-                if((fd = open(logfname, O_CREAT | O_WRONLY | O_TRUNC, LOGFILEPERMS)) < 0){
+                if ((fd = open(logfname, O_CREAT | O_WRONLY | O_TRUNC, LOGFILEPERMS)) < 0){
                     perror("start_serv(): open");
                     return -1;
                 }
@@ -401,9 +401,9 @@ int stop_serv(char servname[]) {
         }
     }
 
-    if(running) {
+    if (running) {
         int needtokillproc = 1;
-        if(kill(services[i]->procid, SIGTERM) != 0) {
+        if (kill(services[i]->procid, SIGTERM) != 0) {
             if (errno == ESRCH) {
                 needtokillproc = 0;
             } else {
@@ -413,7 +413,7 @@ int stop_serv(char servname[]) {
         }
 
         for (int i = 0; i < SIGKILLTIMEOUT; i++) {
-            if(kill(services[i]->procid, SIGTERM) != 0) {
+            if (kill(services[i]->procid, SIGTERM) != 0) {
                 if (errno == ESRCH) {
                     needtokillproc = 0;
                     break;
@@ -425,7 +425,7 @@ int stop_serv(char servname[]) {
         }
         if (needtokillproc) {
             printf("service %s won't terminate, killing it\n", servname);
-            if(kill(services[i]->procid, SIGKILL) != 0) {
+            if (kill(services[i]->procid, SIGKILL) != 0) {
                 if (errno == EPERM) {
                     perror("stop_serv(): kill");
                     return 1;
@@ -500,10 +500,11 @@ int rundaemon() {
         while (count != 0) {
             do {
                 count = read(cmdfd, &buf, sizeof(unsigned char));
-                if (*buf != '\0' && pos <= MAXSERVICES)
+                if (*buf != '\0' && pos <= MAXSERVICES) {
                     command[pos++] = *buf;
-                else
+                } else {
                     break;
+                }
             } while (count != 0);
 
             /* fix overflow */
