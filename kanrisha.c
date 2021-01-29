@@ -56,7 +56,7 @@ struct servlist {
 
 struct service {
     char *name; /* name of service, for restarting */
-    pid_t procid; /* used to be /etc/kanrisha.d/available/<service>/pid */
+    pid_t procid; /* same as /etc/kanrisha.d/available/<service>/pid */
     int restart_when_dead; /* should we (still) restart? */
     int restart_times; /* how many times was the service restarted? used to prevent 100% cpu from instantly dying services */
     int exited_normally; /* set if retval = 0 || stopped by kanrisha stop */
@@ -98,8 +98,29 @@ struct servlist get_running_servs() {
     }
 
     while ((dent = readdir(srcdir)) != NULL) {
-        for (int i = 0; i < service_count; i++) {
-            strcpy(servslist.services[servslist.servc++], services[i]->name);
+        struct stat st;
+
+        if (!strcmp(dent->d_name, ".") || !strcmp(dent->d_name, ".."))
+            continue;
+
+        if (fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
+            perror("get_running_servs(): fstatat");
+            continue;
+        }
+
+        if (S_ISDIR(st.st_mode)) {
+            char* pidfname;
+            if (!(pidfname = malloc(sizeof(char) * (32 + strlen(dent->d_name))))) malloc_fail();
+
+            strcpy(pidfname, "/etc/kanrisha.d/available/");
+            strcat(pidfname, dent->d_name);
+            strcat(pidfname, "/pid");
+
+            if (!access(pidfname, F_OK)) {
+                // TODO: alloc this
+                strcpy(servslist.services[servslist.servc++], dent->d_name);
+            }
+            free(pidfname);
         }
     }
     closedir(srcdir);
@@ -128,7 +149,7 @@ struct servlist get_enabled_servs() {
         }
 
         if (S_ISDIR(st.st_mode)) {
-            // servs[dir_count++] = dent->d_name;
+            // TODO: alloc this
             strcpy(servslist.services[servslist.servc++], dent->d_name);
         }
     }
@@ -208,24 +229,30 @@ int status(char servname[]) {
      * the bases of chiyoko before dealing with these minor details.
     **/
 
+    char* pidfname;
     char* logfname;
+    if (!(pidfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
     if (!(logfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
 
-    strcpy(logfname, "/etc/kanrisha.d/available/");
-    strcat(logfname, servname);
+    strcpy(pidfname, "/etc/kanrisha.d/available/");
+    strcat(pidfname, servname);
+    strcpy(logfname, pidfname);
+    strcat(pidfname, "/pid");
     strcat(logfname, "/log");
 
-    int running = 0, i;
-    for (i = 0; i < service_count; i++) {
-        if (!strcmp(services[i]->name, servname)) {
-            running = 1;
-            break;
-        }
-    }
-
     char status[12] = "not running";
-    pid_t pid = running ? services[i]->procid : -1;
-    if (running) {
+    pid_t pid = -1;
+    if (access(pidfname, F_OK) != -1) {
+        FILE *pidf;
+        pidf = fopen(pidfname, "r");
+        if (pidf == NULL) {
+            fprintf(stderr, "error: %s", strerror(errno));
+            return -1;
+        }
+
+        fscanf(pidf, "%d", &pid);
+        fclose(pidf);
+
         kill(pid, 0);
         if (errno == ESRCH) {
             strcpy(status, "dead");
@@ -234,24 +261,20 @@ int status(char servname[]) {
         }
     }
 
-    char tempout[1024];
-    sprintf(tempout, "%s - %s\n"
+    printf("%s - %s\n"
            "main pid: %d\n\n",
            servname, status, pid);
-    strcat(output, tempout);
 
     free(logfname);
 
-    // printing the last lines of a file in C is a fucking nightmare when
-    // you care about compact, fast and beautiful code. we'll just execvp
-    // tail to deal with this absolutely hellish fuckery
+    /* printing the last lines of a file in C is a fucking nightmare when
+       you care about compact, fast and beautiful code. we'll just execvp
+       tail to deal with this absolutely hellish fuckery */
 
-    // this needed to be removed during daemonization.
+    char* fullcmd[] = { "tail", "-n", STATUSLOGLEN, logfname, NULL };
+    execvp(fullcmd[0], fullcmd);
 
-    // char* fullcmd[] = { "tail", "-n", STATUSLOGLEN, logfname, NULL };
-    // execvp(fullcmd[0], fullcmd);
-
-    // perror("execvp");
+    perror("execvp");
 
     return 0;
 }
@@ -320,13 +343,18 @@ int start_serv(char servname[]) {
     printf("starting service %s...\n", servname);
 
     char* fname;
+    char* pidfname;
     char* logfname;
     if (!(fname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
+    if (!(pidfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
+    if (!(logfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
 
     strcpy(fname, "/etc/kanrisha.d/available/");
     strcat(fname, servname);
+    strcpy(pidfname, fname);
     strcpy(logfname, fname);
     strcat(fname, "/run");
+    strcat(pidfname, "/pid");
     strcat(logfname, "/log");
 
     for (int i = 0; i < service_count; i++) {
@@ -558,7 +586,7 @@ int rundaemon() {
                     fprintf(stderr, "error: unrecognized command\n");
                     break;
             }
-            printf("command %#04x returned %d", command[0], retval);
+            printf("command %#04x returned %d\n", command[0], retval);
         }
 
         /* close fifos and init next session */
@@ -588,10 +616,9 @@ void sigchld_handler(int signo) {
                 }
 
                 if (services[i]->restart_when_dead && services[i]->restart_times < MAXSVCRESTART) {
-                    strcpy(output, "");
+                    printf("service %s died, restarting\n", services[i]->name);
                     stop_serv(services[i]->name);
                     start_serv(services[i]->name);
-                    strcpy(output, "");
                     services[i]->restart_times++;
                 }
             }
