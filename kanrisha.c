@@ -65,9 +65,6 @@ struct service {
 struct service **services;
 int service_count = 0;
 
-/* what should be sent through the socket? */
-char *output;
-
 void malloc_fail() {
     perror("malloc");
     exit(-1);
@@ -96,7 +93,7 @@ struct servlist get_running_servs() {
     struct dirent* dent;
     DIR* srcdir = opendir("/etc/kanrisha.d/available/");
     if(srcdir == NULL) {
-        strcat(output, "error: something went really wrong\n");
+        perror("get_running_servs(): opendir");
         exit(1);
     }
 
@@ -115,7 +112,7 @@ struct servlist get_enabled_servs() {
     struct dirent* dent;
     DIR* srcdir = opendir("/etc/kanrisha.d/enabled/");
     if(srcdir == NULL) {
-        strcat(output, "error: something went really wrong\n");
+        perror("get_enabled_servs(): opendir");
         exit(1);
     }
 
@@ -126,7 +123,7 @@ struct servlist get_enabled_servs() {
             continue;
 
         if(fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
-            perror(dent->d_name);
+            perror("get_enabled_servs(): fstatat");
             continue;
         }
 
@@ -143,20 +140,18 @@ int list(int only_enabled, int only_running) {
     if (only_enabled) {
         struct servlist enabledservs = get_enabled_servs();
         for (int servid = 0; servid < enabledservs.servc; servid++) {
-            strcat(output, enabledservs.services[servid]);
-            strcat(output, "\n");
+            printf("%s\n", enabledservs.services[servid]);
         }
     } else if (only_running) {
         struct servlist runningservs = get_running_servs();
         for (int servid = 0; servid < runningservs.servc; servid++) {
-            strcat(output, runningservs.services[servid]);
-            strcat(output, "\n");
+            printf("%s\n", runningservs.services[servid]);
         }
     } else {
         struct dirent* dent;
         DIR* srcdir = opendir("/etc/kanrisha.d/available/");
         if(srcdir == NULL) {
-            strcat(output, "error: something went really wrong\n");
+            perror("list(): opendir");
             return 1;
         }
 
@@ -167,13 +162,12 @@ int list(int only_enabled, int only_running) {
                 continue;
 
             if(fstatat(dirfd(srcdir), dent->d_name, &st, 0) < 0) {
-                perror(dent->d_name);
+                perror("list(): fstatat");
                 continue;
             }
 
             if(S_ISDIR(st.st_mode)) {
-                strcat(output, dent->d_name);
-                strcat(output, "\n");
+                printf("%s\n", dent->d_name);
             }
         }
         closedir(srcdir);
@@ -278,26 +272,20 @@ int enable_serv(char servname[]) {
         strcat(targetdirname, servname);
 
         if(symlink(dirname, targetdirname) != 0) {
-            if (errno == EACCES) {
-                strcat(output, "error: missing permissions\n");
+            if (errno == EEXIST) {
+                fprintf(stderr, "error: %s is already enabled\n", servname);
                 return 1;
-            } else if (errno == EEXIST) {
-                strcat(output, "error: ");
-                strcat(output, servname);
-                strcat(output, " is already enabled\n");
+            } else {
+                perror("enable_serv(): symlink");
                 return 1;
             }
         }
         free(targetdirname);
     } else {
-        strcat(output, "error: ");
-        strcat(output, servname);
-        strcat(output, " doesn't exist\n");
+        fprintf(stderr, "error: %s doesn't exist\n", servname);
         return 1;
     }
-    strcat(output, "service ");
-    strcat(output, servname);
-    strcat(output, " has been enabled\n");
+    printf("service %s has been enabled\n", servname);
 
     free(dirname);
 
@@ -314,20 +302,14 @@ int disable_serv(char servname[]) {
 
     if(access(dirname, F_OK) != -1) {
         if (unlink(dirname) != 0) {
-            if (errno == EACCES || errno == EPERM) {
-                strcat(output, "error: missing permissions\n");
-                return 1;
-            }
+            perror("disable_serv(): unlink");
+            return 1;
         }
     } else {
-        strcat(output, "error: ");
-        strcat(output, servname);
-        strcat(output, " is already disabled\n");
+        fprintf(stderr, "error: %s is already disabled\n", servname);
         return 1;
     }
-    strcat(output, "service ");
-    strcat(output, servname);
-    strcat(output, " has been disabled\n");
+    printf("service %s has been disabled\n", servname);
 
     free(dirname);
 
@@ -335,9 +317,7 @@ int disable_serv(char servname[]) {
 }
 
 int start_serv(char servname[]) {
-    strcat(output, "starting service ");
-    strcat(output, servname);
-    strcat(output, "...\n");
+    printf("starting service %s...\n", servname);
 
     char* fname;
     char* logfname;
@@ -351,9 +331,7 @@ int start_serv(char servname[]) {
 
     for (int i = 0; i < service_count; i++) {
         if (!strcmp(services[i]->name, servname)) {
-            strcat(output, "error: ");
-            strcat(output, servname);
-            strcat(output, " is already running\n");
+            fprintf(stderr, "error: %s is already running\n", servname);
             return 1;
         }
     }
@@ -366,7 +344,7 @@ int start_serv(char servname[]) {
 
                 int fd;
                 if((fd = open(logfname, O_CREAT | O_WRONLY | O_TRUNC, LOGFILEPERMS)) < 0){
-                    perror("open");
+                    perror("start_serv(): open");
                     return -1;
                 }
 
@@ -388,18 +366,14 @@ int start_serv(char servname[]) {
                 services[service_count++] = started_serv;
             }
         } else {
-            strcat(output, "error: missing permissions\n");
+            fprintf(stderr, "error: missing permissions\n");
             return 1;
         }
     } else {
-        strcat(output, "error: ");
-        strcat(output, servname);
-        strcat(output, " doesn't exist\n");
+        fprintf(stderr, "error: %s doesn't exist\n", servname);
         return 1;
     }
-    strcat(output, "service ");
-    strcat(output, servname);
-    strcat(output, " has been started\n");
+    printf("service %s has been started\n", servname);
 
     free(fname);
     free(logfname);
@@ -417,9 +391,7 @@ int start_all() {
 }
 
 int stop_serv(char servname[]) {
-    strcat(output, "stopping service ");
-    strcat(output, servname);
-    strcat(output, "...\n");
+    printf("stopping service %s...\n", servname);
 
     int running = 0, i;
     for (i = 0; i < service_count; i++) {
@@ -432,11 +404,11 @@ int stop_serv(char servname[]) {
     if(running) {
         int needtokillproc = 1;
         if(kill(services[i]->procid, SIGTERM) != 0) {
-            if (errno == EPERM) {
-                strcat(output, "error: missing permissions\n");
-                return 1;
-            } else if (errno == ESRCH) {
+            if (errno == ESRCH) {
                 needtokillproc = 0;
+            } else {
+                perror("stop_serv(): kill");
+                return 1;
             }
         }
 
@@ -445,29 +417,26 @@ int stop_serv(char servname[]) {
                 if (errno == ESRCH) {
                     needtokillproc = 0;
                     break;
+                } else {
+                    perror("stop_serv(): kill");
+                    return 1;
                 }
             }
         }
         if (needtokillproc) {
-            strcat(output, "service ");
-            strcat(output, servname);
-            strcat(output, " won't terminate, killing it\n");
+            printf("service %s won't terminate, killing it\n", servname);
             if(kill(services[i]->procid, SIGKILL) != 0) {
                 if (errno == EPERM) {
-                    strcat(output, "error: missing permissions\n");
+                    perror("stop_serv(): kill");
                     return 1;
                 }
             }
         }
     } else {
-        strcat(output, "error: ");
-        strcat(output, servname);
-        strcat(output, " isn't running\n");
+        fprintf(stderr, "error: %s isn't running\n", servname);
         return 1;
     }
-    strcat(output, "service ");
-    strcat(output, servname);
-    strcat(output, " has been stopped\n");
+    printf("service %s has been stopped\n", servname);
 
     return 0;
 }
@@ -494,33 +463,26 @@ int restart_serv(char servname[]) {
         stop_serv(servname);
         start_serv(servname);
     } else {
-        strcat(output, "error: ");
-        strcat(output, servname);
-        strcat(output, " isn't running\n");
+        fprintf(stderr, "error: %s isn't running\n", servname);
         return 1;
     }
-    strcat(output, "service ");
-    strcat(output, servname);
-    strcat(output, " has been restarted\n");
+    printf("service %s has been restarted\n", servname);
 
     return 0;
 }
 
 int rundaemon() {
     if (signal(SIGCHLD, sigchld_handler) == SIG_ERR)
-        perror("signal");
+        perror("rundaemon(): signal");
 
-    /* init fifos */
+    /* init fifo */
     mkfifo(CMDFIFOPATH, 0620);
-    mkfifo(OUTFIFOPATH, 0640);
 
     /* init variables */
     unsigned char *buf = NULL;
     int pos = 0;
     ssize_t count = 0;
     unsigned char *command = malloc(sizeof(char) * (MAXSERVICES + 18));
-    output = malloc(sizeof(char) * (2048 + MAXSERVICES));
-    strcpy(output, "");
 
     /* start all enabled, since `kanrisha daemon` will probably only be run on boot. */
     start_all();
@@ -530,28 +492,24 @@ int rundaemon() {
         /* open cmd fifo as read-only */
         int cmdfd = open(CMDFIFOPATH, O_RDONLY);
         if (cmdfd < 0) {
-            perror("open");
+            perror("rundaemon(): open");
             return -1;
         }
-
-        /* open output fifo as write-only */
-        int outfd = open(OUTFIFOPATH, O_WRONLY);
-        if (outfd < 0) {
-            perror("open");
-            return -1;
-        }
-
-        strcpy(output, "");
 
         /* read command session */
         while (count != 0) {
             do {
                 count = read(cmdfd, &buf, sizeof(unsigned char));
-                if (*buf != '\0')
+                if (*buf != '\0' && pos <= MAXSERVICES)
                     command[pos++] = *buf;
                 else
                     break;
             } while (count != 0);
+
+            /* fix overflow */
+            if (pos >= MAXSERVICES) {
+                command[pos] = '\0';
+            }
 
             int retval = 0;
             char *servname = (char *)command;
@@ -596,25 +554,17 @@ int rundaemon() {
                     break;
                 default:
                     retval = 255;
-                    strcpy(output, "error: unrecognized command\n");
+                    fprintf(stderr, "error: unrecognized command\n");
                     break;
             }
-            write(outfd, &retval, sizeof(int));
-
-            /* so that we don't need to write >2kb to the pipe,
-               most of which would be random gargabe bytes */
-            size_t writesize = sizeof(char) * (strlen(output) + 1);
-            write(outfd, &writesize, sizeof(size_t));
-            write(outfd, output, writesize);
+            printf("command %#04x returned %d", command[0], retval);
         }
 
         /* close fifos and init next session */
         close(cmdfd);
-        close(outfd);
     }
 
     unlink(CMDFIFOPATH);
-    unlink(OUTFIFOPATH);
 }
 
 void sigchld_handler(int signo) {
@@ -660,35 +610,13 @@ int daemon_send(unsigned char command, char servname[]) {
         return -1;
     }
 
-    /* open output fifo as read-only */
-    int outfd = open(OUTFIFOPATH, O_RDONLY);
-    if (outfd < 0) {
-        if (errno == ENOENT) {
-            fprintf(stderr, "could not connect to kanrisha daemon, it is most likely not running.\n");
-            return -3;
-        }
-        perror("open");
-        return -1;
-    }
-
     write(cmdfd, &command, sizeof(unsigned char));
 
     if (servname != NULL) {
         write(cmdfd, servname, sizeof(char) * (strlen(servname) + 1));
     }
 
-    int retval = 0;
-    read(outfd, &retval, sizeof(int));
-
-    output = malloc(sizeof(char) * (2048 + MAXSERVICES));
-    size_t readsize;
-    read(outfd, &readsize, sizeof(size_t));
-    read(outfd, output, readsize);
-
-    printf("%s", output);
-    fflush(stdout);
-
-    return retval;
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -708,15 +636,15 @@ int main(int argc, char *argv[]) {
     } else if (!strcmp(argv[1], "restart") && argc == 3) {
         return daemon_send(0x1E, argv[2]);
     } else if (!strcmp(argv[1], "status") && argc == 3) {
-        return daemon_send(0x2A, argv[2]);
+        return status(argv[2]);
     } else if (!strcmp(argv[1], "log") && argc == 3) {
-        return daemon_send(0x2B, argv[2]);
+        return showlog(argv[2]);
     } else if (!strcmp(argv[1], "list") && argc == 2) {
-        return daemon_send(0x3A, NULL);
+        return list(0, 0);
     } else if (!strcmp(argv[1], "list") && !strcmp(argv[2], "enabled")) {
-        return daemon_send(0x3B, NULL);
+        return list(1, 0);
     } else if (!strcmp(argv[1], "list") && !strcmp(argv[2], "running")) {
-        return daemon_send(0x3C, NULL);
+        return list(0, 1);
     } else if (!strcmp(argv[1], "enable") && argc == 3) {
         return daemon_send(0x4A, argv[2]);
     } else if (!strcmp(argv[1], "disable") && argc == 3) {
