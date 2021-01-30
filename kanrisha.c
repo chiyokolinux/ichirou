@@ -281,16 +281,15 @@ int enable_serv(char servname[]) {
     char* dirname;
     if (!(dirname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
 
-    strcpy(dirname, "/etc/kanrisha.d/available/");
-    strcat(dirname, servname);
-    strcat(dirname, "/");
+    /* TODO: this may or may not be correct.
+       tested command: sudo ln -s /etc/kanrisha.d/available/destlink /etc/kanrisha.d/enabled/ */
+    snprintf(dirname, 32 + strlen(servname), "/etc/kanrisha.d/available/%s", servname);
 
     if (access(dirname, F_OK) != -1) {
         char* targetdirname;
         if (!(targetdirname = malloc(sizeof(char) * (28 + strlen(servname))))) malloc_fail();
 
-        strcpy(targetdirname, "/etc/kanrisha.d/enabled/");
-        strcat(targetdirname, servname);
+        snprintf(dirname, 28 + strlen(servname), "/etc/kanrisha.d/enabled/%s", servname);
 
         if (symlink(dirname, targetdirname) != 0) {
             if (errno == EEXIST) {
@@ -317,9 +316,7 @@ int disable_serv(char servname[]) {
     char* dirname;
     if (!(dirname = malloc(sizeof(char) * (28 + strlen(servname))))) malloc_fail();
 
-    strcpy(dirname, "/etc/kanrisha.d/enabled/");
-    strcat(dirname, servname);
-    strcat(dirname, "/");
+    snprintf(dirname, 28 + strlen(servname), "/etc/kanrisha.d/enabled/%s", servname);
 
     if (access(dirname, F_OK) != -1) {
         if (unlink(dirname) != 0) {
@@ -347,13 +344,9 @@ int start_serv(char servname[]) {
     if (!(pidfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
     if (!(logfname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
 
-    strcpy(fname, "/etc/kanrisha.d/available/");
-    strcat(fname, servname);
-    strcpy(pidfname, fname);
-    strcpy(logfname, fname);
-    strcat(fname, "/run");
-    strcat(pidfname, "/pid");
-    strcat(logfname, "/log");
+    snprintf(fname, 32 + strlen(servname), "/etc/kanrisha.d/available/%s/run", servname);
+    snprintf(pidfname, 32 + strlen(servname), "/etc/kanrisha.d/available/%s/pid", servname);
+    snprintf(logfname, 32 + strlen(servname), "/etc/kanrisha.d/available/%s/run", servname);
 
     for (int i = 0; i < service_count; i++) {
         if (!strcmp(services[i]->name, servname)) {
@@ -371,6 +364,9 @@ int start_serv(char servname[]) {
                 int fd;
                 if ((fd = open(logfname, O_CREAT | O_WRONLY | O_TRUNC, LOGFILEPERMS)) < 0){
                     perror("start_serv(): open");
+                    free(fname);
+                    free(pidfname);
+                    free(logfname);
                     return -1;
                 }
 
@@ -400,16 +396,23 @@ int start_serv(char servname[]) {
             }
         } else {
             fprintf(stderr, "error: missing permissions\n");
+            free(fname);
+            free(pidfname);
+            free(logfname);
             return 1;
         }
     } else {
         fprintf(stderr, "error: %s doesn't exist\n", servname);
+        free(fname);
+        free(pidfname);
+        free(logfname);
         return 1;
     }
     printf("service %s has been started\n", servname);
 
     free(fname);
     free(logfname);
+    free(pidfname);
 
     return 0;
 }
@@ -426,6 +429,10 @@ int start_all() {
 int stop_serv(char servname[]) {
     printf("stopping service %s...\n", servname);
 
+    char* fname;
+    if (!(fname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
+    snprintf(fname, 32 + strlen(servname), "/etc/kanrisha.d/available/%s/pid", servname);
+
     int running = 0, i;
     for (i = 0; i < service_count; i++) {
         if (!strcmp(services[i]->name, servname)) {
@@ -435,16 +442,19 @@ int stop_serv(char servname[]) {
     }
 
     if (running) {
+        /* is this even running?? */
         int needtokillproc = 1;
         if (kill(services[i]->procid, SIGTERM) != 0) {
             if (errno == ESRCH) {
                 needtokillproc = 0;
             } else {
                 perror("stop_serv(): kill");
+                free(fname);
                 return 1;
             }
         }
 
+        /* kil, process */
         for (int i = 0; i < SIGKILLTIMEOUT; i++) {
             if (kill(services[i]->procid, SIGTERM) != 0) {
                 if (errno == ESRCH) {
@@ -452,6 +462,7 @@ int stop_serv(char servname[]) {
                     break;
                 } else {
                     perror("stop_serv(): kill");
+                    free(fname);
                     return 1;
                 }
             }
@@ -461,15 +472,26 @@ int stop_serv(char servname[]) {
             if (kill(services[i]->procid, SIGKILL) != 0) {
                 if (errno == EPERM) {
                     perror("stop_serv(): kill");
+                    free(fname);
                     return 1;
                 }
             }
         }
+
+        /* delete pidfile */
+        if (unlink(fname) != 0) {
+            fprintf(stderr, "error: cannot delete pidfile. please remove it manually or problems will occur ( %s )\n", strerror(errno));
+            free(fname);
+            return 1;
+        }
     } else {
         fprintf(stderr, "error: %s isn't running\n", servname);
+        free(fname);
         return 1;
     }
     printf("service %s has been stopped\n", servname);
+
+    free(fname);
 
     return 0;
 }
