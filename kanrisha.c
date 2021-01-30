@@ -265,8 +265,6 @@ int status(char servname[]) {
            "main pid: %d\n\n",
            servname, status, pid);
 
-    free(logfname);
-
     /* printing the last lines of a file in C is a fucking nightmare when
        you care about compact, fast and beautiful code. we'll just execvp
        tail to deal with this absolutely hellish fuckery */
@@ -384,6 +382,7 @@ int start_serv(char servname[]) {
                 stop_serv(servname);
                 exit(-1);
             } else {
+                /* save service data internally */
                 struct service *started_serv = malloc(sizeof(struct service));
                 started_serv->name = strdup(servname);
                 started_serv->procid = child_pid;
@@ -392,6 +391,12 @@ int start_serv(char servname[]) {
                 started_serv->exited_normally = 0;
 
                 services[service_count++] = started_serv;
+
+                /* save pidfile on disk */
+                FILE *fp;
+                fp = fopen(pidfname, "w+");
+                fprintf(fp, "%d\n", child_pid);
+                fclose(fp);
             }
         } else {
             fprintf(stderr, "error: missing permissions\n");
