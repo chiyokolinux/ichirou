@@ -35,6 +35,7 @@ void sys_perror(char *description);
 void sys_eprintf(char *format, char *servname);
 void sys_wprintf(char *format, char *servname);
 void sys_iprintf(char *format, char *servname);
+void sys_cprintf(char *format, unsigned char command, int retval);
 void help();
 struct servlist get_running_servs();
 struct servlist get_enabled_servs();
@@ -112,6 +113,15 @@ void sys_iprintf(char *format, char *servname) {
 #endif
 }
 
+void sys_cprintf(char *format, unsigned char command, int retval) {
+#ifdef WRITE_TO_OUTPUT
+    printf(format, command, retval);
+#endif
+#ifdef WRITE_TO_SYSLOG
+    syslog(LOG_DAEMON | LOG_INFO, format, command, retval);
+#endif
+}
+
 void help() {
     printf("           kanrisha - a simple service manager\n"
            "           created for the ichirou init system\n\n"
@@ -159,7 +169,6 @@ struct servlist get_running_servs() {
             strcat(pidfname, "/pid");
 
             if (!access(pidfname, F_OK)) {
-                // TODO: alloc this
                 strcpy(servslist.services[servslist.servc++], dent->d_name);
             }
             free(pidfname);
@@ -191,7 +200,6 @@ struct servlist get_enabled_servs() {
         }
 
         if (S_ISDIR(st.st_mode)) {
-            // TODO: alloc this
             strcpy(servslist.services[servslist.servc++], dent->d_name);
         }
     }
@@ -335,19 +343,19 @@ int enable_serv(char servname[]) {
 
         if (symlink(dirname, targetdirname) != 0) {
             if (errno == EEXIST) {
-                fprintf(stderr, "error: %s is already enabled\n", servname);
+                sys_eprintf("error: %s is already enabled\n", servname);
                 return 1;
             } else {
-                perror("enable_serv(): symlink");
+                sys_perror("enable_serv(): symlink");
                 return 1;
             }
         }
         free(targetdirname);
     } else {
-        fprintf(stderr, "error: %s doesn't exist\n", servname);
+        sys_eprintf("error: %s doesn't exist\n", servname);
         return 1;
     }
-    printf("service %s has been enabled\n", servname);
+    sys_iprintf("service %s has been enabled\n", servname);
 
     free(dirname);
 
@@ -362,14 +370,14 @@ int disable_serv(char servname[]) {
 
     if (access(dirname, F_OK) != -1) {
         if (unlink(dirname) != 0) {
-            perror("disable_serv(): unlink");
+            sys_perror("disable_serv(): unlink");
             return 1;
         }
     } else {
-        fprintf(stderr, "error: %s is already disabled\n", servname);
+        sys_eprintf("error: %s is already disabled\n", servname);
         return 1;
     }
-    printf("service %s has been disabled\n", servname);
+    sys_iprintf("service %s has been disabled\n", servname);
 
     free(dirname);
 
@@ -377,7 +385,7 @@ int disable_serv(char servname[]) {
 }
 
 int start_serv(char servname[]) {
-    printf("starting service %s...\n", servname);
+    sys_iprintf("starting service %s...\n", servname);
 
     char* fname;
     char* pidfname;
@@ -392,7 +400,10 @@ int start_serv(char servname[]) {
 
     for (int i = 0; i < service_count; i++) {
         if (!strcmp(services[i]->name, servname)) {
-            fprintf(stderr, "error: %s is already running\n", servname);
+            sys_eprintf("error: %s is already running\n", servname);
+            free(fname);
+            free(pidfname);
+            free(logfname);
             return 1;
         }
     }
@@ -405,7 +416,7 @@ int start_serv(char servname[]) {
 
                 int fd;
                 if ((fd = open(logfname, O_CREAT | O_WRONLY | O_TRUNC, LOGFILEPERMS)) < 0){
-                    perror("start_serv(): open");
+                    sys_perror("start_serv(): open");
                     free(fname);
                     free(pidfname);
                     free(logfname);
@@ -437,20 +448,20 @@ int start_serv(char servname[]) {
                 fclose(fp);
             }
         } else {
-            fprintf(stderr, "error: missing permissions\n");
+            sys_eprintf("error: missing permissions\n", NULL);
             free(fname);
             free(pidfname);
             free(logfname);
             return 1;
         }
     } else {
-        fprintf(stderr, "error: %s doesn't exist\n", servname);
+        sys_eprintf("error: %s doesn't exist\n", servname);
         free(fname);
         free(pidfname);
         free(logfname);
         return 1;
     }
-    printf("service %s has been started\n", servname);
+    sys_iprintf("service %s has been started\n", servname);
 
     free(fname);
     free(logfname);
@@ -469,7 +480,7 @@ int start_all() {
 }
 
 int stop_serv(char servname[]) {
-    printf("stopping service %s...\n", servname);
+    sys_iprintf("stopping service %s...\n", servname);
 
     char* fname;
     if (!(fname = malloc(sizeof(char) * (32 + strlen(servname))))) malloc_fail();
@@ -490,7 +501,7 @@ int stop_serv(char servname[]) {
             if (errno == ESRCH) {
                 needtokillproc = 0;
             } else {
-                perror("stop_serv(): kill");
+                sys_perror("stop_serv(): kill");
                 free(fname);
                 return 1;
             }
@@ -503,17 +514,17 @@ int stop_serv(char servname[]) {
                     needtokillproc = 0;
                     break;
                 } else {
-                    perror("stop_serv(): kill");
+                    sys_perror("stop_serv(): kill");
                     free(fname);
                     return 1;
                 }
             }
         }
         if (needtokillproc) {
-            printf("service %s won't terminate, killing it\n", servname);
+            sys_iprintf("service %s won't terminate, killing it\n", servname);
             if (kill(services[i]->procid, SIGKILL) != 0) {
                 if (errno == EPERM) {
-                    perror("stop_serv(): kill");
+                    sys_perror("stop_serv(): kill");
                     free(fname);
                     return 1;
                 }
@@ -522,16 +533,16 @@ int stop_serv(char servname[]) {
 
         /* delete pidfile */
         if (unlink(fname) != 0) {
-            fprintf(stderr, "error: cannot delete pidfile. please remove it manually or problems will occur ( %s )\n", strerror(errno));
+            sys_wprintf("warning: cannot delete pidfile. please remove it manually or problems will occur ( %s )\n", strerror(errno));
             free(fname);
             return 1;
         }
     } else {
-        fprintf(stderr, "error: %s isn't running\n", servname);
+        sys_eprintf("error: %s isn't running\n", servname);
         free(fname);
         return 1;
     }
-    printf("service %s has been stopped\n", servname);
+    sys_iprintf("service %s has been stopped\n", servname);
 
     free(fname);
 
@@ -560,17 +571,18 @@ int restart_serv(char servname[]) {
         stop_serv(servname);
         start_serv(servname);
     } else {
-        fprintf(stderr, "error: %s isn't running\n", servname);
+        sys_eprintf("error: %s isn't running\n", servname);
         return 1;
     }
-    printf("service %s has been restarted\n", servname);
+    sys_iprintf("service %s has been restarted\n", servname);
 
     return 0;
 }
 
 int rundaemon() {
-    if (signal(SIGCHLD, sigchld_handler) == SIG_ERR)
-        perror("rundaemon(): signal");
+    if (signal(SIGCHLD, sigchld_handler) == SIG_ERR) {
+        sys_perror("rundaemon(): signal");
+    }
 
     /* init fifo */
     mkfifo(CMDFIFOPATH, 0620);
@@ -589,7 +601,7 @@ int rundaemon() {
         /* open cmd fifo as read-only */
         int cmdfd = open(CMDFIFOPATH, O_RDONLY);
         if (cmdfd < 0) {
-            perror("rundaemon(): open");
+            sys_perror("rundaemon(): open");
             return -1;
         }
 
@@ -652,10 +664,10 @@ int rundaemon() {
                     break;
                 default:
                     retval = 255;
-                    fprintf(stderr, "error: unrecognized command\n");
+                    sys_eprintf("error: unrecognized command\n", NULL);
                     break;
             }
-            printf("command %#04x returned %d\n", command[0], retval);
+            sys_cprintf("command %#04x returned %d\n", command[0], retval);
         }
 
         /* close fifos and init next session */
@@ -685,7 +697,7 @@ void sigchld_handler(int signo) {
                 }
 
                 if (services[i]->restart_when_dead && services[i]->restart_times < MAXSVCRESTART) {
-                    printf("service %s died, restarting\n", services[i]->name);
+                    sys_iprintf("service %s died, restarting\n", services[i]->name);
                     stop_serv(services[i]->name);
                     start_serv(services[i]->name);
                     services[i]->restart_times++;
