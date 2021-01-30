@@ -28,8 +28,13 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <syslog.h>
 
 void malloc_fail();
+void sys_perror(char *description);
+void sys_eprintf(char *format, char *servname);
+void sys_wprintf(char *format, char *servname);
+void sys_iprintf(char *format, char *servname);
 void help();
 struct servlist get_running_servs();
 struct servlist get_enabled_servs();
@@ -68,6 +73,43 @@ int service_count = 0;
 void malloc_fail() {
     perror("malloc");
     exit(-1);
+}
+
+void sys_perror(char *description) {
+    int error = errno;
+#ifdef WRITE_TO_OUTPUT
+    fprintf(stderr, "%s: %s\n", description, strerror(error));
+#endif
+#ifdef WRITE_TO_SYSLOG
+    syslog(LOG_DAEMON | LOG_ERR, "%s: %s\n", description, strerror(error));
+#endif
+}
+
+void sys_eprintf(char *format, char *servname) {
+#ifdef WRITE_TO_OUTPUT
+    fprintf(stderr, format, servname);
+#endif
+#ifdef WRITE_TO_SYSLOG
+    syslog(LOG_DAEMON | LOG_ERR, format, servname);
+#endif
+}
+
+void sys_wprintf(char *format, char *servname) {
+#ifdef WRITE_TO_OUTPUT
+    fprintf(stderr, format, servname);
+#endif
+#ifdef WRITE_TO_SYSLOG
+    syslog(LOG_DAEMON | LOG_WARNING, format, servname);
+#endif
+}
+
+void sys_iprintf(char *format, char *servname) {
+#ifdef WRITE_TO_OUTPUT
+    printf(format, servname);
+#endif
+#ifdef WRITE_TO_SYSLOG
+    syslog(LOG_DAEMON | LOG_NOTICE, format, servname);
+#endif
 }
 
 void help() {
