@@ -8,7 +8,7 @@ echo "| ichirou init system - booting |"
 echo "---------------------------------"
 echo
 
-echo sourcing config
+echo sourcing config...
 source /etc/rc.conf
 
 /bin/ctrlaltdel -s
@@ -23,7 +23,7 @@ echo mounting system filesystems...
 
 /bin/grep -q " verbose" /proc/cmdline && dmesg -n 8 || dmesg -n 3
 
-echo starting udevd
+echo starting udevd...
 /sbin/udevd -d
 /sbin/udevadm trigger --action=add    --type=subsystems
 /sbin/udevadm trigger --action=add    --type=devices
@@ -42,7 +42,7 @@ if [ $? -eq 1 ]; then
     /bin/halt -r
 fi
 
-echo making root writable
+echo making root writable...
 /bin/mount -o remount,rw /
 
 echo mounting filesystems...
@@ -52,16 +52,16 @@ ln -sf /proc/mounts /etc/mtab
 echo setting hostname...
 /bin/hostname $HOSTNAME
 
-echo starting loopback
+echo starting loopback...
 /bin/ip addr add 127.0.0.1/8 dev lo broadcast + scope host
 /bin/ip link set lo up
 
-echo setting hwclock
+echo setting hwclock...
 export TZ="$TIMEZONE"
 /bin/hwclock -u -s /dev/rtc0
 unset TZ
 
-echo directing dmesg output to /var/log/dmesg.log
+echo directing dmesg output to /var/log/dmesg.log...
 /bin/dmesg > /var/log/dmesg.log
 if [ -e /proc/sys/kernel/dmesg_restrict ] && [ $(/bin/cat /proc/sys/kernel/dmesg_restrict) = "1" ];
 then

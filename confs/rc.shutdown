@@ -8,12 +8,12 @@ echo
 
 /bin/hwclock $HWCLOCK_PARAMS /dev/rtc0
 
-echo syncing filesystems
+echo syncing filesystems...
 /bin/sync
 /bin/sleep 3
 
-echo disabling swap
+echo disabling swap...
 swapoff -a &>/dev/null
 
-echo unmounting filesystems
+echo unmounting filesystems...
 /bin/umount -a -r &>/dev/null
