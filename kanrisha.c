@@ -586,7 +586,7 @@ int rundaemon() {
     }
 
     /* init system logging stuff */
-    openlog("kanrisha", LOG_NOWAIT | LOG_PID, LOG_DAEMON);
+    openlog("kanrisha", LOG_PID, LOG_DAEMON);
 
     /* init fifo */
     mkfifo(CMDFIFOPATH, 0620);
