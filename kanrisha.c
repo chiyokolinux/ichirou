@@ -580,9 +580,13 @@ int restart_serv(char servname[]) {
 }
 
 int rundaemon() {
+    /* setup child watcher */
     if (signal(SIGCHLD, sigchld_handler) == SIG_ERR) {
         sys_perror("rundaemon(): signal");
     }
+
+    /* init system logging stuff */
+    openlog("kanrisha", LOG_NOWAIT | LOG_PID, LOG_DAEMON);
 
     /* init fifo */
     mkfifo(CMDFIFOPATH, 0620);
