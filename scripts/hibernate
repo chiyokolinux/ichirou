@@ -1,3 +1,5 @@
 #!/bin/sh
+# hibernate script for ichirou
+# See LICENSE file for license and copyright information.
 
 /bin/kill -s HUP 1

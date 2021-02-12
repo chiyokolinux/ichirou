@@ -1,4 +1,4 @@
-/* See LICENSE file for copyright and license details. */
+/* See LICENSE file for license and copyright information. */
 
 #include <sys/types.h>
 #include <sys/wait.h>

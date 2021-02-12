@@ -1,3 +1,6 @@
+# Makefile for ichirou & kanrisha
+# See LICENSE file for license and copyright information.
+
 include config.mk
 
 INITOBJ = ichirou.o
@@ -20,19 +23,25 @@ $(SERVBIN): $(SERVOBJ)
 $(INITOBJ): config.h
 $(SERVOBJ): config.h
 
-confs:
+confs: $(CONFS)
 	mkdir -p $(DESTDIR)$(PREFIX)/bin
-	cp -f $(CONFS) $(DESTDIR)$(PREFIX)/bin
+	install -Dm700 $(SCRIPTS) $(DESTDIR)$(PREFIX)/bin/
 
-scripts:
+scripts: $(SCRIPTS)
 	mkdir -p $(DESTDIR)$(PREFIX)/sbin
-	cp -f $(SCRIPTS) $(DESTDIR)$(PREFIX)/sbin
+	install -Dm755 $(SCRIPTS) $(DESTDIR)$(PREFIX)/sbin/
+
+confs/%:
+	sed '/^# .* script for ichirou$$/d; /^# See LICENSE file.*$$/d' $@.in > $@
+
+scripts/%:
+	sed '/^# .* script for ichirou$$/d; /^# See LICENSE file.*$$/d' $@.in > $@
 
 install: all confs scripts
 	mkdir -p $(DESTDIR)$(PREFIX)/sbin
 	mkdir -vp $(DESTDIR)$(PREFIX)/etc/kanrisha.d/{enabled,available}
-	cp -f $(INITBIN) $(DESTDIR)$(PREFIX)/sbin
-	cp -f $(SERVBIN) $(DESTDIR)$(PREFIX)/sbin
+	install -Dm700 $(INITBIN) $(DESTDIR)$(PREFIX)/sbin/$(INITBIN)
+	install -Dm755 $(SERVBIN) $(DESTDIR)$(PREFIX)/sbin/$(SERVBIN)
 	ln -s $(DESTDIR)$(PREFIX)/sbin/$(INITBIN) $(DESTDIR)$(PREFIX)/sbin/init
 
 uninstall:

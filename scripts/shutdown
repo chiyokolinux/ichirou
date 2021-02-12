@@ -1,4 +1,6 @@
 #!/bin/sh
+# shutdown script for ichirou
+# See LICENSE file for license and copyright information.
 
 ACTION="USR1"
 FORCE="no"

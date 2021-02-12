@@ -1,4 +1,6 @@
 #!/bin/sh
+# default rc.shutdown script for ichirou
+# See LICENSE file for license and copyright information.
 
 echo
 echo "---------------------------------"

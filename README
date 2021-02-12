@@ -1,5 +1,5 @@
 ichirou init system
 ===================
 
-ichirou is a basic init system for linux systems.
+ichirou is a basic init system for unix systems.
 it comes with its own service manager, kanrisha.
