@@ -10,6 +10,7 @@ SERVOBJ = kanrisha.o
 SERVBIN = kanrisha
 
 CONFS = confs/rc.conf confs/rc.init confs/rc.local confs/rc.postinit confs/rc.shutdown
+BOOTSCRIPTS = confs/rc.init confs/rc.local confs/rc.postinit confs/rc.shutdown
 SCRIPTS = scripts/halt scripts/hibernate scripts/reboot scripts/shutdown
 
 all: $(INITBIN) $(SERVBIN)
@@ -62,7 +63,7 @@ dist: clean
 	rm -rf ichirou-$(VERSION)
 
 clean:
-	rm -f $(INITBIN) $(SERVBIN) $(INITOBJ) $(SERVOBJ) ichirou-$(VERSION).tar.gz
+	rm -f $(INITBIN) $(SERVBIN) $(INITOBJ) $(SERVOBJ) $(BOOTSCRIPTS) $(SCRIPTS) ichirou-$(VERSION).tar.gz
 
 .SUFFIXES: .def.h
 
