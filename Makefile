@@ -31,6 +31,8 @@ scripts: $(SCRIPTS)
 	mkdir -p $(DESTDIR)$(PREFIX)/sbin
 	install -Dm755 $(SCRIPTS) $(DESTDIR)$(PREFIX)/sbin/
 
+confs/rc.conf: ;
+
 confs/%:
 	sed '/^# .* script for ichirou$$/d; /^# See LICENSE file.*$$/d' $@.in > $@
 
