@@ -1,6 +1,8 @@
 #!/bin/sh
 # default rc.init script for ichirou
-# See LICENSE file for license and copyright information.
+# Copyright (c) 2020-2021 Emily <elishikawa@jagudev.net>
+# See LICENSE file or <https://www.gnu.org/licenses/gpl-3.0.html>
+# for license and copyright information.
 
 umask 022
 
