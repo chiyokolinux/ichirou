@@ -68,9 +68,10 @@ dist: clean
 	mkdir -p ichirou-$(VERSION)/confs
 	mkdir -p ichirou-$(VERSION)/scripts
 	cp LICENSE Makefile README config.def.h config.mk ichirou.c kanrisha.c ichirou-$(VERSION)
-	cp confs/rc.conf confs/rc.init confs/rc.local confs/rc.postinit \
-	   confs/rc.shutdown ichirou-$(VERSION)/confs
-	cp scripts/halt scripts/hibernate scripts/reboot scripts/shutdown ichirou-$(VERSION)/scripts
+	cp confs/rc.conf.in confs/rc.init.in confs/rc.local.in confs/rc.postinit.in \
+	   confs/rc.shutdown.in ichirou-$(VERSION)/confs
+	cp scripts/halt.in scripts/hibernate.in scripts/reboot.in scripts/shutdown.in \
+		ichirou-$(VERSION)/scripts
 	tar -cf ichirou-$(VERSION).tar ichirou-$(VERSION)
 	gzip ichirou-$(VERSION).tar
 	rm -rf ichirou-$(VERSION)
