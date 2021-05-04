@@ -278,19 +278,6 @@ static void sighibernate(void) {
         sleep(1);
 }
 
-static void spawn(char *const argv[]) {
-    switch (fork()) {
-        case 0:
-            sigprocmask(SIG_UNBLOCK, &set, NULL);
-            setsid();
-            execvp(argv[0], argv);
-            perror("execvp");
-            _exit(1);
-        case -1:
-            perror("fork");
-    }
-}
-
 static void spawnwait(char *const argv[]) {
     pid_t chpid = fork();
     switch (chpid) {
