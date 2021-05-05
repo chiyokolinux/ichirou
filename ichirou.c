@@ -38,7 +38,6 @@ static void sigffreboot(void);
 static void sighalt(void);
 static void sigfhalt(void);
 static void sighibernate(void);
-static void spawn(char *const []);
 static void spawnwait(char *const argv[]);
 
 static struct {
